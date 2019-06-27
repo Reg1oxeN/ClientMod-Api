@@ -1,0 +1,43 @@
+"Games"
+{
+	"cstrike"
+	{
+		"Addresses"
+		{
+			"CCSGameMovement_CheckJumpButton"
+			{
+				"windows"
+				{
+					"signature" "CCSGameMovement_CheckJumpButton_Sig"
+				}
+				"linux"
+				{
+					"signature" "CCSGameMovement_CheckJumpButton_Sig"
+				}
+			}
+		}
+		"Offsets"
+		{
+			"CheckJumpButtonOffset"
+			{
+				"windows"		"286"
+				"linux"			"297"
+			}
+			"PatchSize"
+			{
+				"windows"		"1"
+				"linux"			"4"
+			}
+		}
+		
+		"Signatures"
+		{
+			"CCSGameMovement_CheckJumpButton_Sig"
+			{
+				"library"		"server"
+				"windows"		"\x83\xEC\x0C\x56\x8B\xF1\x8B\x8E\x70\x02\x00\x00"
+				"linux"			"@_ZN15CCSGameMovement15CheckJumpButtonEv"
+			}
+		}
+	}
+}
