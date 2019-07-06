@@ -41,6 +41,9 @@ ConVar g_hSmokeType = null;
 ConVar g_hPrivateMode = null;
 ConVar g_hPrivateMessage = null;
 ConVar g_hAutoBhop = null;
+ConVar g_hDisableBhop = null;
+ConVar g_hDisableBhopScale = null;
+
 
 public void OnPluginStart()
 {
@@ -51,15 +54,17 @@ public void OnPluginStart()
 	CreateConVar("se_scoreboard", "0", "1 - скрыть показ денег. 2 - Деньги видят только тиммейты. 3 - mp_forcecamera правила для бомбы, щипцов и денег.", FCVAR_REPLICATED, true, 0.0, true, 3.0);
 	CreateConVar("se_crosshair_sniper", "0", "Принудительно отключить прицел на снайперках.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	g_hAutoBhop = CreateConVar("se_autobunnyhopping", "0", "Предсказание автобхопа на стороне клиента.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
+	g_hDisableBhop = CreateConVar("se_disablebunnyhopping", "0", "Ограниченое скорости бхопа.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
+	g_hDisableBhopScale = CreateConVar("se_disablebunnyhopping_scale", "1.2", "Множитель максимальной скорости бхопа от текущей максимальной скорости бега.", FCVAR_REPLICATED, true, 1.0, true, 2.0);
+	
 	CreateConVar("se_allowpure", "0", "Разрешить обработку sv_pure клиентом.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	
 	g_hCMSmoke = CreateConVar("se_newsmoke", "0", "Контролируется только командами clientmod_smoke_type и clientmod_smoke_mode", FCVAR_REPLICATED);
 	g_hSmokeType = CreateConVar("clientmod_smoke_type", "0", "0 - отключить новый смок. 1 - стандартный из стим версии. 2 - более плотный.", _, true, 0.0, true, 2.0);
-	g_hSmokeMode = CreateConVar("clientmod_smoke_mode", "0", "0 - отключить. 1 - убрать пыль, которая мешает смоку и делает его прозрачным. 2 - уменьшить время на пару секунд как в стим версии. 3 - оба режима.", _, true, 0.0, true, 3.0);
+	g_hSmokeMode = CreateConVar("clientmod_smoke_mode", "1", "0 - отключить. 1 - убрать пыль, которая мешает смоку и делает его прозрачным. 2 - уменьшить время на пару секунд как в стим версии. 3 - оба режима.", _, true, 0.0, true, 3.0);
 	
 	g_hPrivateMode = CreateConVar("clientmod_private", "0", "Пускать ли только клиентов клиент мода. 1 - только новые. 2 - пускать и старых.", FCVAR_NOTIFY|FCVAR_DONTRECORD, true, 0.0, true, 2.0);
 	g_hPrivateMessage = CreateConVar("clientmod_private_message", "The server is ClientMod users only. Download it from vk.com/clientmod ", "Текст для кика не клиент мод клиентов, если clientmod_private = 1", _, true, 0.0, true, 1.0);
-	
 	
 	g_hSmokeType.AddChangeHook(SmokeCvarHook);
 	g_hSmokeMode.AddChangeHook(SmokeCvarHook);
@@ -135,7 +140,7 @@ public void OnClientConnected(int client)
 
 public void OnClientPutInServer(int client)
 {
-	if (g_hAutoBhop.BoolValue && !IsFakeClient(client))
+	if ((g_hAutoBhop.BoolValue || g_hDisableBhop.BoolValue) && !IsFakeClient(client))
 	{
 		SDKHook(client, SDKHook_PreThink, OnClientPreThink);
 		SDKHook(client, SDKHook_PostThink, OnClientPostThink);
@@ -160,7 +165,6 @@ void Call_OnClientAuth(int client, CMAuthType type)
 		g_hPrivateMessage.GetString(szKickMessage, sizeof(szKickMessage));
 		ReplaceString(szKickMessage, sizeof(szKickMessage), "\\n", "\n");
 		KickClient(client, szKickMessage);
-		
 	}
 }
 
@@ -323,6 +327,7 @@ void CM_AutoBhopInit()
 	iBackupPatch = LoadFromAddress(aAutoBhopAddr, iPatchType);
 	
 	g_hAutoBhop.AddChangeHook(AutoBhopHook);
+	g_hDisableBhop.AddChangeHook(AutoBhopHook);
 }
 
 public void AutoBhopHook(ConVar convar, const char[] oldValue, const char[] newValue)
@@ -331,7 +336,7 @@ public void AutoBhopHook(ConVar convar, const char[] oldValue, const char[] newV
 	{
 		if (IsClientInGame(i) && !IsFakeClient(i))
 		{
-			if (g_hAutoBhop.BoolValue)
+			if (g_hAutoBhop.BoolValue || g_hDisableBhop.BoolValue)
 			{
 				SDKHook(i, SDKHook_PreThink, OnClientPreThink);
 				SDKHook(i, SDKHook_PostThink, OnClientPostThink);
@@ -365,6 +370,7 @@ public void CM_AutoBhopDisable()
 
 public void OnClientPreThink(int client)
 {
+	PreventBunnyJumping(client);
 	if (g_hAutoBhop.BoolValue && IsPlayerAlive(client) && (GetClientButtons(client) & IN_JUMP))
 	{
 		Action result;
@@ -383,4 +389,32 @@ public void OnClientPreThink(int client)
 public void OnClientPostThink(int client)
 {
 	CM_AutoBhopDisable();
+}
+
+void PreventBunnyJumping(int client)
+{
+	if (!g_hDisableBhop.BoolValue || IsFakeClient(client) || !IsPlayerAlive(client) || !(GetEntityFlags(client) & FL_ONGROUND) || !(GetClientButtons(client) & IN_JUMP)||
+	!(GetEntityMoveType(client) == MOVETYPE_ISOMETRIC || GetEntityMoveType(client) == MOVETYPE_WALK))
+		return;
+	
+	float maxscaledspeed = g_hDisableBhopScale.FloatValue * GetEntPropFloat(client, Prop_Send, "m_flMaxspeed");
+	if (maxscaledspeed <= 0.0)
+		return;
+		
+	float m_vecAbsVelocity[3];
+	GetEntPropVector(client, Prop_Data, "m_vecAbsVelocity", m_vecAbsVelocity);
+	float zbackup = m_vecAbsVelocity[2];
+	m_vecAbsVelocity[2] = 0.0;
+	
+	float spd = GetVectorLength(m_vecAbsVelocity);
+	if (spd <= maxscaledspeed)
+		return;
+	
+	float fraction = (maxscaledspeed / spd);
+	
+	m_vecAbsVelocity[0] *= fraction;
+	m_vecAbsVelocity[1] *= fraction;
+	m_vecAbsVelocity[2] = zbackup;
+	
+	SetEntPropVector(client, Prop_Data, "m_vecAbsVelocity", m_vecAbsVelocity);
 }
