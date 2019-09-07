@@ -58,12 +58,17 @@ void ClientModAssistPatch() // автоматическое добавление
 			delete EventFileSearch;
 	}
 	
+	if (!FinalEventFilePath[0])
+	{
+		strcopy(FinalEventFilePath, sizeof(FinalEventFilePath), "resource/ModEvents.res");
+	}
+	
 	if (FinalEventFilePath[strlen(FinalEventFilePath) - 1] == 's')
 	{
-		char cTrash[8];
 		KeyValues hModEvents = new KeyValues("cstrikeevents");
 		if (hModEvents.ImportFromFile(FinalEventFilePath) && hModEvents.JumpToKey("player_death"))
 		{
+			char cTrash[8];
 			bool bAlreadyPatched = hModEvents.GetString("assister", cTrash, sizeof(cTrash)) && strcmp(cTrash, "short") == 0;
 			bool bPatched = false;
 			if (!bAlreadyPatched)
