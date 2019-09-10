@@ -63,7 +63,6 @@ void ClientModAssistPatch() // автоматическое добавление
 		strcopy(FinalEventFilePath, sizeof(FinalEventFilePath), "resource/ModEvents.res");
 	}
 	
-	if (FinalEventFilePath[strlen(FinalEventFilePath) - 1] == 's')
 	{
 		KeyValues hModEvents = new KeyValues("cstrikeevents");
 		if (hModEvents.ImportFromFile(FinalEventFilePath) && hModEvents.JumpToKey("player_death"))
