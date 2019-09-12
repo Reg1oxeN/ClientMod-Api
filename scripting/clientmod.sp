@@ -38,6 +38,7 @@ ConVar g_hCMTags = null;
 ConVar g_hCMSmoke = null;
 ConVar g_hSmokeMode = null;
 ConVar g_hSmokeType = null;
+ConVar g_hSmokeFix = null;
 ConVar g_hPrivateMode = null;
 ConVar g_hPrivateMessage = null;
 ConVar g_hAutoBhop = null;
@@ -63,12 +64,15 @@ public void OnPluginStart()
 	g_hSmokeType = CreateConVar("clientmod_smoke_type", "0", "0 - отключить новый смок. 1 - стандартный из стим версии. 2 - более плотный.", _, true, 0.0, true, 2.0);
 	g_hSmokeMode = CreateConVar("clientmod_smoke_mode", "1", "0 - отключить. 1 - убрать пыль, которая мешает смоку и делает его прозрачным. 2 - уменьшить время на пару секунд как в стим версии. 3 - оба режима.", _, true, 0.0, true, 3.0);
 	
+	g_hSmokeFix = CreateConVar("clientmod_smoke_fix", "0", "0 - отключить. 1 - включить исправления подсветки игроков на радаре через смок.", _, true, 0.0, true, 1.0);
+	
 	g_hPrivateMode = CreateConVar("clientmod_private", "0", "Пускать ли только клиентов клиент мода. 1 - только новые. 2 - пускать и старых.", FCVAR_NOTIFY|FCVAR_DONTRECORD, true, 0.0, true, 2.0);
 	g_hPrivateMessage = CreateConVar("clientmod_private_message", "The server is ClientMod users only. Download it from vk.com/clientmod ", "Текст для кика не клиент мод клиентов, если clientmod_private = 1", _, true, 0.0, true, 1.0);
 	
 	g_hSmokeType.AddChangeHook(SmokeCvarHook);
 	g_hSmokeMode.AddChangeHook(SmokeCvarHook);
 	g_hCMSmoke.AddChangeHook(SmokeCvarHook);
+	g_hSmokeFix.AddChangeHook(SmokeFixHook);
 	SmokeCvarHook(null, "", "");
 	
 	CM_TagsInit();
@@ -87,11 +91,13 @@ public void OnPluginStart()
 				OnClientPutInServer(i);
 		}
 	}
+	CM_SmokeFixEnable(true);
 }
 
 public void OnPluginEnd()
 {
 	CM_AutoBhopDisable();
+	CM_SmokeFixDisable();
 }
 
 public void SmokeCvarHook(ConVar convar, const char[] oldValue, const char[] newValue)
@@ -417,4 +423,82 @@ void PreventBunnyJumping(int client)
 	m_vecAbsVelocity[2] = zbackup;
 	
 	SetEntPropVector(client, Prop_Data, "m_vecAbsVelocity", m_vecAbsVelocity);
+}
+
+
+
+Address aSmokeFixAddr[2] = {Address_Null, ...};
+float fSmokeFixValue[2] =  { 108.5, 4.0 };
+bool bSmokeFixed = false;
+
+void CM_SmokeFixEnable(bool bInit = false)
+{
+	if (bInit)
+	{
+		Handle hConfig = LoadGameConfigFile("clientmod");
+		if(hConfig == INVALID_HANDLE)
+			SetFailState("Load clientmod gamedata Config Fail");
+		
+		aSmokeFixAddr[0] = GameConfGetAddress(hConfig, "CBotManager_IsLineBlockedBySmoke");
+		int iSmokeBlockOffset1 = GameConfGetOffset(hConfig, "BlockedBySmokeOffset1");
+		int iSmokeBlockOffset2 = GameConfGetOffset(hConfig, "BlockedBySmokeOffset2");
+		
+		aSmokeFixAddr[1] = GameConfGetAddress(hConfig, "ActiveGrenade_OnEntityGone");
+		int iOnEntityGoneOffset = GameConfGetOffset(hConfig, "OnEntityGoneOffset");
+		
+		CloseHandle(hConfig);
+		
+		if (aSmokeFixAddr[0] == Address_Null || aSmokeFixAddr[1] == Address_Null || iSmokeBlockOffset1 == -1 || iOnEntityGoneOffset == -1)
+		{
+			SetFailState("Read clientmod gamedata Config Fail");
+		}
+		
+		if (iSmokeBlockOffset1)
+		{
+			aSmokeFixAddr[0] += view_as<Address>(iSmokeBlockOffset1);
+			aSmokeFixAddr[0] += view_as<Address>(LoadFromAddress(aSmokeFixAddr[0], NumberType_Int32) + 4);
+		}
+		aSmokeFixAddr[0] += view_as<Address>(iSmokeBlockOffset2);
+		aSmokeFixAddr[1] += view_as<Address>(iOnEntityGoneOffset);
+		
+		aSmokeFixAddr[0] = view_as<Address>(LoadFromAddress(aSmokeFixAddr[0], NumberType_Int32));
+		aSmokeFixAddr[1] = view_as<Address>(LoadFromAddress(aSmokeFixAddr[1], NumberType_Int32));
+		
+		if (view_as<float>(LoadFromAddress(aSmokeFixAddr[0], NumberType_Int32)) != fSmokeFixValue[0] ||
+			view_as<float>(LoadFromAddress(aSmokeFixAddr[1], NumberType_Int32)) != fSmokeFixValue[1])
+			{
+				SetFailState("Invalid smoke patch value");
+			}
+		
+		
+		return;
+	}
+	
+	if (!bSmokeFixed)
+	{
+		StoreToAddress(aSmokeFixAddr[0], view_as<int>(0.0), NumberType_Int32);
+		StoreToAddress(aSmokeFixAddr[1], view_as<int>(20.0 - (5.0 + GetTickInterval() * 255.0)), NumberType_Int32);
+		bSmokeFixed = true;
+	}
+}
+
+void CM_SmokeFixDisable()
+{
+	if (bSmokeFixed)
+	{
+		StoreToAddress(aSmokeFixAddr[0], view_as<int>(fSmokeFixValue[0]), NumberType_Int32);
+		StoreToAddress(aSmokeFixAddr[1], view_as<int>(fSmokeFixValue[1]), NumberType_Int32);
+	}
+}
+
+public void SmokeFixHook(ConVar convar, const char[] oldValue, const char[] newValue)
+{
+	if (convar.BoolValue)
+	{
+		CM_SmokeFixEnable();
+	}
+	else
+	{
+		CM_SmokeFixDisable();
+	}
 }

@@ -15,6 +15,28 @@
 					"signature" "CCSGameMovement_CheckJumpButton_Sig"
 				}
 			}
+			"CBotManager_IsLineBlockedBySmoke"
+			{
+				"windows"
+				{
+					"signature" "CBotManager_IsLineBlockedBySmoke_Sig"
+				}
+				"linux"
+				{
+					"signature" "CBotManager_IsLineBlockedBySmoke_Sig"
+				}
+			}
+			"ActiveGrenade_OnEntityGone"
+			{
+				"windows"
+				{
+					"signature" "ActiveGrenade_OnEntityGone_Sig"
+				}
+				"linux"
+				{
+					"signature" "ActiveGrenade_OnEntityGone_Sig"
+				}
+			}
 		}
 		"Offsets"
 		{
@@ -28,6 +50,21 @@
 				"windows"		"1"
 				"linux"			"4"
 			}
+			"BlockedBySmokeOffset1"
+			{
+				"windows"		"1"
+				"linux"			"0"
+			}
+			"BlockedBySmokeOffset2"
+			{
+				"windows"		"1432"
+				"linux"			"1177"
+			}
+			"OnEntityGoneOffset"
+			{
+				"windows"		"16"
+				"linux"			"12"
+			}
 		}
 		
 		"Signatures"
@@ -37,6 +74,19 @@
 				"library"		"server"
 				"windows"		"\x83\xEC\x0C\x56\x8B\xF1\x8B\x8E\x70\x02\x00\x00"
 				"linux"			"@_ZN15CCSGameMovement15CheckJumpButtonEv"
+			}
+			"CBotManager_IsLineBlockedBySmoke_Sig"
+			{
+				"library"		"server"
+				"windows"		"\xE8\x2A\x2A\x2A\x2A\x84\xC0\x75\xCE"
+				"linux"			"@_ZN11CBotManager20IsLineBlockedBySmokeERK6VectorS2_f"
+			}
+			
+			"ActiveGrenade_OnEntityGone_Sig"
+			{
+				"library"		"server"
+				"windows"		"\x80\x79\x14\x00\x74\x11"
+				"linux"			"@_ZN13ActiveGrenade12OnEntityGoneEv"
 			}
 		}
 	}
