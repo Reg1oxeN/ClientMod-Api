@@ -32,5 +32,10 @@
 | **clientmod_smoke_fix** | ``Fixes the spotting of enemies on a radar in smoke``<br/>**0** - disable<br/>**1** - enable<br/> |
 | **clientmod_private** | ``Private mode for server``<br/>**0** - disable<br/>**1** - allow access only to the latest version of ClientMod.<br/>**2** - allow access to the any version of ClientMod |
 | **clientmod_private_message** | ``Message for kick clients if clientmod_private > 0`` |
+| **clientmod_team_t** | ``The custom name of the Terrorist team in the scoreboard`` |
+| **clientmod_team_ct** | ``The custom name of the Counter-Terrorist team in the scoreboard`` |
+
+
+
 
 	
