@@ -2,6 +2,7 @@
   #endinput
 #endif
 #define _clientmod_included
+#include <clientmod\teams>
 
 #define CM_VERSION	"1.0.0"
 #define CM_URL		"https://vk.com/clientmod"

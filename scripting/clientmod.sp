@@ -2,6 +2,7 @@
 #pragma newdecls required
 
 #include <sourcemod>
+#include <cstrike>
 #include <sdktools>
 #include <sdkhooks>
 #include <clientmod>
@@ -44,7 +45,8 @@ ConVar g_hPrivateMessage = null;
 ConVar g_hAutoBhop = null;
 ConVar g_hDisableBhop = null;
 ConVar g_hDisableBhopScale = null;
-
+ConVar g_hTeamT = null;
+ConVar g_hTeamCT = null;
 
 public void OnPluginStart()
 {
@@ -66,6 +68,9 @@ public void OnPluginStart()
 	
 	g_hSmokeFix = CreateConVar("clientmod_smoke_fix", "0", "0 - отключить. 1 - включить исправления подсветки игроков на радаре через смок.", _, true, 0.0, true, 1.0);
 	
+	g_hTeamT = CreateConVar("clientmod_team_t", "", "Имя команды Т в таблице счета.", _);
+	g_hTeamCT = CreateConVar("clientmod_team_ct", "", "Имя команды КТ в таблице счета.", _);
+	
 	g_hPrivateMode = CreateConVar("clientmod_private", "0", "Пускать ли только клиентов клиент мода. 1 - только новые. 2 - пускать и старых.", FCVAR_NOTIFY|FCVAR_DONTRECORD, true, 0.0, true, 2.0);
 	g_hPrivateMessage = CreateConVar("clientmod_private_message", "The server is ClientMod users only. Download it from vk.com/clientmod ", "Текст для кика не клиент мод клиентов, если clientmod_private = 1", _, true, 0.0, true, 1.0);
 	
@@ -73,31 +78,50 @@ public void OnPluginStart()
 	g_hSmokeMode.AddChangeHook(SmokeCvarHook);
 	g_hCMSmoke.AddChangeHook(SmokeCvarHook);
 	g_hSmokeFix.AddChangeHook(SmokeFixHook);
+	g_hTeamT.AddChangeHook(TeamCvarHook);
+	g_hTeamCT.AddChangeHook(TeamCvarHook);
 	SmokeCvarHook(null, "", "");
+	TeamCvarHook(null, "", "");
 	
 	CM_TagsInit();
 	CM_AutoBhopInit();
 	
 	for (int i = 1; i < MaxClients; i++)
 	{
-		if (IsClientConnected(i))
+		if (IsClientConnected(i) && !IsFakeClient(i))
 		{
-			if (IsFakeClient(i))
-				continue;
-				
 			OnClientConnected(i);
-			
 			if (IsClientInGame(i))
+			{
 				OnClientPutInServer(i);
+			}
 		}
 	}
 	CM_SmokeFixEnable(true);
+	SmokeFixHook(null, "", "");
 }
 
 public void OnPluginEnd()
 {
 	CM_AutoBhopDisable();
 	CM_SmokeFixDisable();
+}
+
+public void TeamCvarHook(ConVar convar, const char[] oldValue, const char[] newValue)
+{
+	char team_t[32];
+	char team_ct[32];
+	g_hTeamT.GetString(team_t, sizeof(team_t));
+	g_hTeamCT.GetString(team_ct, sizeof(team_ct));
+	
+	if (convar != null || strlen(team_t) > 0)
+	{
+		CM_SetTeamName(CS_TEAM_T, team_t);
+	}
+	if (convar != null || strlen(team_ct) > 0)
+	{
+		CM_SetTeamName(CS_TEAM_CT, team_ct);
+	}
 }
 
 public void SmokeCvarHook(ConVar convar, const char[] oldValue, const char[] newValue)
@@ -110,30 +134,32 @@ public void SmokeCvarHook(ConVar convar, const char[] oldValue, const char[] new
 	}
 	
 	CMSmokeFlag smoke = smoke_type == 1 ? CMSmokeFlag_DensityNormal : CMSmokeFlag_DensityBold;
-	
 	int smoke_mode = g_hSmokeMode.IntValue;
 	if (smoke_mode == 0)
 	{
 		g_hCMSmoke.SetInt(view_as<int>(smoke), true);
 		return;
 	}
-	
 	if (smoke_mode == 1 || smoke_mode == 3)
+	{
 		smoke |= CMSmokeFlag_RemoveDust;
+	}
 	if (smoke_mode == 2 || smoke_mode == 3)
+	{
 		smoke |= CMSmokeFlag_ReduceTime;
-	
+	}
 	g_hCMSmoke.SetInt(view_as<int>(smoke), true);
 }
 
 public void OnClientConnected(int client)
 {
 	if (client < 1 || IsFakeClient(client) || IsClientInKickQueue(client))
+	{
 		return;
+	}
 	
 	bool bClientModUser = (GetClientInfo(client, "_client_version", _client_version[client], sizeof(_client_version[])) &&
 		strlen(_client_version[client]) > 2 && StringToInt(_client_version[client][0]) > 0);
-		
 		
 	char _client_new[8];
 	bool bClientModNew = bClientModUser && (GetClientInfo(client, "~clientmod", _client_new, sizeof(_client_new)) &&
@@ -178,8 +204,9 @@ public int Native_GetClientModAuth(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1);
 	if (client < 1 || client >= sizeof(g_eCMAuth) || !IsClientConnected(client) || IsFakeClient(client))
+	{
 		return 0;
-	
+	}
 	return view_as<int>(g_eCMAuth[client]);
 }
 
@@ -187,8 +214,9 @@ public int Native_GetClientModVersion(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1);
 	if (client < 1 || client >= sizeof(_client_version) || !IsClientConnected(client) || IsFakeClient(client) || g_eCMAuth[client] < CM_Auth_ClientMod)
+	{
 		return 0;
-	
+	}
 	return SetNativeString(2, _client_version[client], GetNativeCell(3)) == SP_ERROR_NONE;
 }
 
@@ -209,13 +237,17 @@ public int Native_RemoveTag(Handle plugin, int numParams)
 bool AddTag(char[] pszTag)
 {
 	if (strlen(pszTag) < 1)
+	{
 		return false;
+	}
 	
 	char buffer[MAX_TAG_STRING_LENGTH];
 	for (int index = 0; index < g_aTagList.Length; index++)
 	{
 		if (g_aTagList.GetString(index, buffer, sizeof(buffer)) > 0 && !strcmp(buffer, pszTag, false))
+		{
 			return false;
+		}
 	}
 	
 	strcopy(buffer, sizeof(buffer), pszTag);
@@ -228,7 +260,9 @@ bool AddTag(char[] pszTag)
 bool RemoveTag(char[] pszTag)
 {
 	if (strlen(pszTag) < 1)
+	{
 		return false;
+	}
 	
 	char buffer[MAX_TAG_STRING_LENGTH];
 	for (int index = 0; index < g_aTagList.Length; index++)
@@ -240,25 +274,25 @@ bool RemoveTag(char[] pszTag)
 			return true;
 		}
 	}
-	
 	return false;
 }
 
 void CM_WriteTag()
 {
 	char szTagString[MAX_TAG_STRING_LENGTH];
-	char buffer[MAX_TAG_STRING_LENGTH];
-	buffer[0] = 0;
-	
+	char buffer[MAX_TAG_STRING_LENGTH]; buffer[0] = 0;
 	for (int index = 0; index < g_aTagList.Length; index++)
 	{
 		if (g_aTagList.GetString(index, buffer, sizeof(buffer)) > 0)
+		{
 			Format(szTagString, sizeof(szTagString), "%s%s,", szTagString, buffer);
+		}
 	}
 	int iSize = strlen(szTagString);
 	if (iSize > 0)
+	{
 		szTagString[iSize - 1] = 0;
-		
+	}
 	g_hCMTags.SetString(szTagString);
 }
 
@@ -296,15 +330,20 @@ void CM_TagsInit()
 public void TagsCvarHook(ConVar convar, const char[] oldValue, const char[] newValue)
 {
 	bool bValid = false;
-	
 	if (g_hPrivateMode.BoolValue)
+	{
 		bValid |= AddTag("private");
+	}
 	else
+	{
 		bValid |= RemoveTag("private");
-	
+	}
 	if (!bValid)
+	{
 		CM_WriteTag();
+	}
 }
+
 
 
 Address aAutoBhopAddr = Address_Null;
@@ -312,11 +351,14 @@ int iPatchSize = 0;
 NumberType iPatchType = NumberType_Int8;
 int iBackupPatch = 0;
 bool bAutoBhopPatched = false;
+
 void CM_AutoBhopInit()
 {
 	Handle hConfig = LoadGameConfigFile("clientmod");
 	if(hConfig == INVALID_HANDLE)
+	{
 		SetFailState("Load clientmod gamedata Config Fail");
+	}
 	
 	aAutoBhopAddr = GameConfGetAddress(hConfig, "CCSGameMovement_CheckJumpButton");
 	int iOffset = GameConfGetOffset(hConfig, "CheckJumpButtonOffset");
@@ -427,7 +469,7 @@ void PreventBunnyJumping(int client)
 
 
 
-Address aSmokeFixAddr[2] = {Address_Null, ...};
+Address aSmokeFixAddr[2] = {Address_Null, Address_Null};
 float fSmokeFixValue[2] =  { 108.5, 4.0 };
 bool bSmokeFixed = false;
 
@@ -437,7 +479,9 @@ void CM_SmokeFixEnable(bool bInit = false)
 	{
 		Handle hConfig = LoadGameConfigFile("clientmod");
 		if(hConfig == INVALID_HANDLE)
+		{
 			SetFailState("Load clientmod gamedata Config Fail");
+		}
 		
 		aSmokeFixAddr[0] = GameConfGetAddress(hConfig, "CBotManager_IsLineBlockedBySmoke");
 		int iSmokeBlockOffset1 = GameConfGetOffset(hConfig, "BlockedBySmokeOffset1");
@@ -470,14 +514,12 @@ void CM_SmokeFixEnable(bool bInit = false)
 				SetFailState("Invalid smoke patch value");
 			}
 		
-		
 		return;
 	}
 	
 	if (!bSmokeFixed)
 	{
 		StoreToAddress(aSmokeFixAddr[0], view_as<int>(0.0), NumberType_Int32);
-		StoreToAddress(aSmokeFixAddr[1], view_as<int>(20.0 - (5.0 + GetTickInterval() * 255.0)), NumberType_Int32);
 		bSmokeFixed = true;
 	}
 }
@@ -493,7 +535,7 @@ void CM_SmokeFixDisable()
 
 public void SmokeFixHook(ConVar convar, const char[] oldValue, const char[] newValue)
 {
-	if (convar.BoolValue)
+	if (g_hSmokeFix.BoolValue)
 	{
 		CM_SmokeFixEnable();
 	}
@@ -501,4 +543,30 @@ public void SmokeFixHook(ConVar convar, const char[] oldValue, const char[] newV
 	{
 		CM_SmokeFixDisable();
 	}
+}
+
+public void OnEntityCreated(int entity, const char[] classname) 
+{ 
+	if (bSmokeFixed && entity > MaxClients && classname[0] == 's' && strcmp(classname, "smokegrenade_projectile") == 0)
+	{
+		SDKHook(entity, SDKHook_Think, SmokeFix_OnThink);
+	}
+}
+
+public void SmokeFix_OnThink(int entity)
+{
+	int rgba[4];
+	GetEntityRenderColor(entity, rgba[0], rgba[1], rgba[2], rgba[3]);
+	if (rgba[3] == 1)
+	{
+		SDKHook(entity, SDKHook_ThinkPost, SmokeFix_OnThinkPost);
+		SDKUnhook(entity, SDKHook_Think, SmokeFix_OnThink);
+		StoreToAddress(aSmokeFixAddr[1], view_as<int>(20.0 - (5.0 + GetTickInterval() * 255.0)), NumberType_Int32);
+	}
+}
+
+public void SmokeFix_OnThinkPost(int entity)
+{
+	SDKUnhook(entity, SDKHook_ThinkPost, SmokeFix_OnThinkPost);
+	StoreToAddress(aSmokeFixAddr[1], view_as<int>(fSmokeFixValue[1]), NumberType_Int32);
 }
