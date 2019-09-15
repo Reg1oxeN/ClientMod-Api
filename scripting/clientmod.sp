@@ -469,8 +469,8 @@ void PreventBunnyJumping(int client)
 
 
 
-Address aSmokeFixAddr[2] = {Address_Null, Address_Null};
-float fSmokeFixValue[2] =  { 108.5, 4.0 };
+Address aSmokeFixAddr = Address_Null;
+float fSmokeFixValue =  108.5;
 bool bSmokeFixed = false;
 
 void CM_SmokeFixEnable(bool bInit = false)
@@ -483,43 +483,37 @@ void CM_SmokeFixEnable(bool bInit = false)
 			SetFailState("Load clientmod gamedata Config Fail");
 		}
 		
-		aSmokeFixAddr[0] = GameConfGetAddress(hConfig, "CBotManager_IsLineBlockedBySmoke");
+		aSmokeFixAddr = GameConfGetAddress(hConfig, "CBotManager_IsLineBlockedBySmoke");
 		int iSmokeBlockOffset1 = GameConfGetOffset(hConfig, "BlockedBySmokeOffset1");
 		int iSmokeBlockOffset2 = GameConfGetOffset(hConfig, "BlockedBySmokeOffset2");
 		
-		aSmokeFixAddr[1] = GameConfGetAddress(hConfig, "ActiveGrenade_OnEntityGone");
-		int iOnEntityGoneOffset = GameConfGetOffset(hConfig, "OnEntityGoneOffset");
-		
 		CloseHandle(hConfig);
 		
-		if (aSmokeFixAddr[0] == Address_Null || aSmokeFixAddr[1] == Address_Null || iSmokeBlockOffset1 == -1 || iOnEntityGoneOffset == -1)
+		if (aSmokeFixAddr == Address_Null || iSmokeBlockOffset1 == -1)
 		{
 			SetFailState("Read clientmod gamedata Config Fail");
 		}
 		
 		if (iSmokeBlockOffset1)
 		{
-			aSmokeFixAddr[0] += view_as<Address>(iSmokeBlockOffset1);
-			aSmokeFixAddr[0] += view_as<Address>(LoadFromAddress(aSmokeFixAddr[0], NumberType_Int32) + 4);
+			aSmokeFixAddr += view_as<Address>(iSmokeBlockOffset1);
+			aSmokeFixAddr += view_as<Address>(LoadFromAddress(aSmokeFixAddr, NumberType_Int32) + 4);
 		}
-		aSmokeFixAddr[0] += view_as<Address>(iSmokeBlockOffset2);
-		aSmokeFixAddr[1] += view_as<Address>(iOnEntityGoneOffset);
+		aSmokeFixAddr += view_as<Address>(iSmokeBlockOffset2);
 		
-		aSmokeFixAddr[0] = view_as<Address>(LoadFromAddress(aSmokeFixAddr[0], NumberType_Int32));
-		aSmokeFixAddr[1] = view_as<Address>(LoadFromAddress(aSmokeFixAddr[1], NumberType_Int32));
+		aSmokeFixAddr = view_as<Address>(LoadFromAddress(aSmokeFixAddr, NumberType_Int32));
 		
-		if (view_as<float>(LoadFromAddress(aSmokeFixAddr[0], NumberType_Int32)) != fSmokeFixValue[0] ||
-			view_as<float>(LoadFromAddress(aSmokeFixAddr[1], NumberType_Int32)) != fSmokeFixValue[1])
-			{
-				SetFailState("Invalid smoke patch value");
-			}
+		if (view_as<float>(LoadFromAddress(aSmokeFixAddr, NumberType_Int32)) != fSmokeFixValue)
+		{
+			SetFailState("Invalid smoke patch value");
+		}
 		
 		return;
 	}
 	
 	if (!bSmokeFixed)
 	{
-		StoreToAddress(aSmokeFixAddr[0], view_as<int>(0.0), NumberType_Int32);
+		StoreToAddress(aSmokeFixAddr, view_as<int>(0.0), NumberType_Int32);
 		bSmokeFixed = true;
 	}
 }
@@ -528,8 +522,7 @@ void CM_SmokeFixDisable()
 {
 	if (bSmokeFixed)
 	{
-		StoreToAddress(aSmokeFixAddr[0], view_as<int>(fSmokeFixValue[0]), NumberType_Int32);
-		StoreToAddress(aSmokeFixAddr[1], view_as<int>(fSmokeFixValue[1]), NumberType_Int32);
+		StoreToAddress(aSmokeFixAddr, view_as<int>(fSmokeFixValue), NumberType_Int32);
 	}
 }
 
@@ -549,24 +542,22 @@ public void OnEntityCreated(int entity, const char[] classname)
 { 
 	if (bSmokeFixed && entity > MaxClients && classname[0] == 's' && strcmp(classname, "smokegrenade_projectile") == 0)
 	{
-		SDKHook(entity, SDKHook_Think, SmokeFix_OnThink);
-	}
-}
-
-public void SmokeFix_OnThink(int entity)
-{
-	int rgba[4];
-	GetEntityRenderColor(entity, rgba[0], rgba[1], rgba[2], rgba[3]);
-	if (rgba[3] == 1)
-	{
 		SDKHook(entity, SDKHook_ThinkPost, SmokeFix_OnThinkPost);
-		SDKUnhook(entity, SDKHook_Think, SmokeFix_OnThink);
-		StoreToAddress(aSmokeFixAddr[1], view_as<int>(20.0 - (5.0 + GetTickInterval() * 255.0)), NumberType_Int32);
 	}
 }
 
 public void SmokeFix_OnThinkPost(int entity)
 {
-	SDKUnhook(entity, SDKHook_ThinkPost, SmokeFix_OnThinkPost);
-	StoreToAddress(aSmokeFixAddr[1], view_as<int>(fSmokeFixValue[1]), NumberType_Int32);
+	int rgba[4];
+	GetEntityRenderColor(entity, rgba[0], rgba[1], rgba[2], rgba[3]);
+	if (rgba[3] == 1)
+	{
+		int next_think = GetEntProp(entity, Prop_Data, "m_nNextThinkTick");
+		if (next_think > -1)
+		{
+			bool bReduce = (view_as<CMSmokeFlag>(g_hCMSmoke.IntValue) & CMSmokeFlag_ReduceTime) == CMSmokeFlag_ReduceTime;
+			int fix_think = RoundToZero(0.5 + ((bReduce ? 18.0 : 20.0) - 5.0 - GetTickInterval() * 255.0 - 4.0) / GetTickInterval());
+			SetEntProp(entity, Prop_Data, "m_nNextThinkTick", next_think + fix_think);
+		}
+	}
 }

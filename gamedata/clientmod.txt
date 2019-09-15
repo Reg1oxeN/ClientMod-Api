@@ -26,17 +26,6 @@
 					"signature" "CBotManager_IsLineBlockedBySmoke_Sig"
 				}
 			}
-			"ActiveGrenade_OnEntityGone"
-			{
-				"windows"
-				{
-					"signature" "ActiveGrenade_OnEntityGone_Sig"
-				}
-				"linux"
-				{
-					"signature" "ActiveGrenade_OnEntityGone_Sig"
-				}
-			}
 		}
 		"Offsets"
 		{
@@ -60,11 +49,6 @@
 				"windows"		"1432"
 				"linux"			"1177"
 			}
-			"OnEntityGoneOffset"
-			{
-				"windows"		"16"
-				"linux"			"12"
-			}
 		}
 		
 		"Signatures"
@@ -80,13 +64,6 @@
 				"library"		"server"
 				"windows"		"\xE8\x2A\x2A\x2A\x2A\x84\xC0\x75\xCE"
 				"linux"			"@_ZN11CBotManager20IsLineBlockedBySmokeERK6VectorS2_f"
-			}
-			
-			"ActiveGrenade_OnEntityGone_Sig"
-			{
-				"library"		"server"
-				"windows"		"\x80\x79\x14\x00\x74\x11"
-				"linux"			"@_ZN13ActiveGrenade12OnEntityGoneEv"
 			}
 		}
 	}
