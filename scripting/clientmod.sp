@@ -489,7 +489,7 @@ void CM_SmokeFixEnable(bool bInit = false)
 		
 		CloseHandle(hConfig);
 		
-		if (aSmokeFixAddr == Address_Null || iSmokeBlockOffset1 == -1)
+		if (aSmokeFixAddr == Address_Null || iSmokeBlockOffset1 == -1 || iSmokeBlockOffset2 == -1)
 		{
 			SetFailState("Read clientmod gamedata Config Fail");
 		}
@@ -523,6 +523,7 @@ void CM_SmokeFixDisable()
 	if (bSmokeFixed)
 	{
 		StoreToAddress(aSmokeFixAddr, view_as<int>(fSmokeFixValue), NumberType_Int32);
+		bSmokeFixed = false;
 	}
 }
 
