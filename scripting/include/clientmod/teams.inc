@@ -3,7 +3,7 @@
 #endif
 #define _clientmodteams_included
 
-int CM_GetTeam(int index)
+stock int CM_GetTeam(int index)
 {
 	static int teams[4] = { INVALID_ENT_REFERENCE, ... };
 	if (index < 0 || index >= sizeof(teams))
@@ -52,7 +52,7 @@ int CM_GetTeam(int index)
 	return -1;
 }
 
-bool CM_SetTeamName(int index, const char[] name)
+stock bool CM_SetTeamName(int index, const char[] name)
 {
 	char sTeamNames[][] =
 	{
