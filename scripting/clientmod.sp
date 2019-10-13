@@ -71,6 +71,8 @@ public void OnPluginStart()
 	g_hTeamT = CreateConVar("clientmod_team_t", "", "Имя команды Т в таблице счета.", _);
 	g_hTeamCT = CreateConVar("clientmod_team_ct", "", "Имя команды КТ в таблице счета.", _);
 	
+	RegServerCmd("clientmod_tags", Command_Tags);
+	
 	g_hPrivateMode = CreateConVar("clientmod_private", "0", "Пускать ли только клиентов клиент мода. 1 - только новые. 2 - пускать и старых.", FCVAR_NOTIFY|FCVAR_DONTRECORD, true, 0.0, true, 2.0);
 	g_hPrivateMessage = CreateConVar("clientmod_private_message", "The server is ClientMod users only. Download it from vk.com/clientmod ", "Текст для кика не клиент мод клиентов, если clientmod_private = 1", _, true, 0.0, true, 1.0);
 	
@@ -81,7 +83,6 @@ public void OnPluginStart()
 	g_hTeamT.AddChangeHook(TeamCvarHook);
 	g_hTeamCT.AddChangeHook(TeamCvarHook);
 	SmokeCvarHook(null, "", "");
-	TeamCvarHook(null, "", "");
 	
 	CM_TagsInit();
 	CM_AutoBhopInit();
@@ -106,6 +107,41 @@ public void OnPluginEnd()
 	CM_AutoBhopDisable();
 	CM_SmokeFixDisable();
 }
+
+public void OnMapStart()
+{
+	TeamCvarHook(null, "", "");
+}
+
+public Action Command_Tags(int args)
+{
+	if (args == 2)
+	{
+		char type[8]; GetCmdArg(1, type, sizeof(type));
+		char buffer[MAX_TAG_STRING_LENGTH]; GetCmdArg(2, buffer, sizeof(buffer));
+		if (strcmp(type, "add", false) == 0)
+		{
+			bool bResult = AddTag(buffer);
+			PrintToServer("[ClientMod] %s add tag \"%s\"", bResult ? "Successfully" : "Failed", buffer);
+			return Plugin_Handled;
+		}
+		else if (strcmp(type, "remove", false) == 0)
+		{
+			bool bResult = RemoveTag(buffer);
+			PrintToServer("[ClientMod] %s remove tag \"%s\"", bResult ? "Successfully" : "Failed", buffer);
+			return Plugin_Handled;
+		}
+	}
+	PrintToServer("[ClientMod] Usage:\nclientmod_tags add any_tag\nclientmod_tags remove any_tag");
+	return Plugin_Handled;
+}
+public Action Command_RemoveTag(int args)
+{
+	char text[192];
+	GetCmdArgString(text, sizeof(text));
+ 
+}
+
 
 public void TeamCvarHook(ConVar convar, const char[] oldValue, const char[] newValue)
 {
