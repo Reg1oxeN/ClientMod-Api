@@ -408,7 +408,7 @@ void ClientModEventsPatch() // автоматическое добавление
 		FileType cFileType = FileType_Unknown;
 		while (EventFileSearch.GetNext(DirName, sizeof(DirName), cFileType))
 		{
-			if (cFileType == FileType_Directory && strcmp(DirName, "resource", false) == 0)
+			if (strcmp(DirName, "resource", false) == 0 && DirExists(DirName, true, "MOD"))
 			{
 				strcopy(FinalEventFilePath, sizeof(FinalEventFilePath), DirName);
 				
@@ -420,8 +420,13 @@ void ClientModEventsPatch() // автоматическое добавление
 					{
 						if (cFileType == FileType_File && strcmp(DirName, "modevents.res", false) == 0)
 						{
-							Format(FinalEventFilePath, sizeof(FinalEventFilePath), "%s/%s", FinalEventFilePath, DirName);
-							break;
+							char TempPath[PLATFORM_MAX_PATH];
+							Format(TempPath, sizeof(TempPath), "%s/%s", FinalEventFilePath, DirName);
+							if (!DirExists(TempPath, true, "MOD"))
+							{
+								strcopy(FinalEventFilePath, sizeof(FinalEventFilePath), TempPath);
+								break;
+							}
 						}
 					}
 				}
@@ -433,6 +438,13 @@ void ClientModEventsPatch() // автоматическое добавление
 			delete EventFileSearch;
 		}
 	}
+	
+	if (!FinalEventFilePath[0])
+	{
+		PrintToServer("[ClientMod] Failed find path with filesystem!");
+		strcopy(FinalEventFilePath, sizeof(FinalEventFilePath), "resource/modevents.res");
+	}
+	
 	if (FinalEventFilePath[strlen(FinalEventFilePath) - 1] == 's')
 	{
 		char cTrash[8];
