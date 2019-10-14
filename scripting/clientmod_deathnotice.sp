@@ -197,7 +197,7 @@ bool IsSmokeAlive(int entity)
 	return false;
 }
 
-bool IsSmokeKill(int client, int attacker)
+bool IsSmokeKill(int client, int attacker, bool penetrated)
 {
 	if (!client || !attacker || g_vSmokeList.Length < 1 || !IsClientInGame(client) || !IsClientInGame(attacker))
 	{
@@ -207,6 +207,10 @@ bool IsSmokeKill(int client, int attacker)
 	float ClientPos[3]; GetClientEyePosition(client, ClientPos);
 	float AttackerPos[3]; GetClientEyePosition(attacker, AttackerPos);
 	float EntityPos[3];
+	if (penetrated)
+	{
+		ClientPos = g_flPlayerLastShot[attacker];
+	}
 	for (int i = 0; i < g_vSmokeList.Length; i++)
 	{
 		int entity = view_as<int>(g_vSmokeList.Get(i));
@@ -327,22 +331,20 @@ public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast
 	}
 	
 	
-	int attackerblind = GetPlayerBlind(attacker);
-	if (g_hBlind.IntValue && attackerblind > 0)
+	if (g_hBlind.IntValue)
 	{
-		event.SetBool("attackerblind", true);
-		return;
+		event.SetBool("attackerblind", GetPlayerBlind(attacker) > 0);
 	}
 	
 	int penetrated = GetPlayerPenetrated(attacker, event);
-	if (g_hPenetrated.IntValue && penetrated > 0)
+	if (g_hPenetrated.IntValue)
 	{
 		event.SetInt("penetrated", penetrated);
-		return;
 	}
+	
 	if (g_hSmoke.IntValue)
 	{
-		event.SetBool("smoke", IsSmokeKill(client, attacker));
+		event.SetBool("smoke", IsSmokeKill(client, attacker, penetrated > 0));
 	}
 }
 
@@ -362,6 +364,7 @@ int GetPlayerPenetrated(int client, Event event)
 	
 	float ClientPos[3]; GetClientEyePosition(client, ClientPos);
 	TR_TraceRayFilter(ClientPos, g_flPlayerLastShot[client], MASK_SHOT, RayType_EndPoint, Filter_LocalPlayer, client);
+	TR_GetEndPosition(g_flPlayerLastShot[client]);
 	return TR_GetFraction() == 1.0 ? 0 : 1;
 }
 
