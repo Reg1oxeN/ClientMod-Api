@@ -5,6 +5,7 @@
 #include <sdkhooks>
 #include <cstrike>
 #include <clientmod>
+#include <clientmod\tracerayfilter>
 
 public Plugin myinfo =
 {
@@ -19,6 +20,7 @@ int g_iPlayerBlind[MAXPLAYERS];
 float g_flFlashBangTime[MAXPLAYERS];
 float g_flPlayerLastShot[MAXPLAYERS][3];
 int g_iPlayerDamage[MAXPLAYERS][MAXPLAYERS];
+int g_iPlayerKills[MAXPLAYERS];
 ArrayList g_vSmokeList = null;
 ConVar g_hCMSmoke = null;
 ConVar g_hAssist = null;
@@ -33,8 +35,8 @@ public void OnPluginStart()
 	HookEvent("player_death", Event_PlayerDeath, EventHookMode_Pre);
 	HookEvent("player_hurt", Event_PlayerHurt);
 	HookEvent("player_spawn", Event_PlayerSpawn);
-	HookEvent("bullet_impact", Event_Penetrated);
-	HookEvent("weapon_fire", Event_Penetrated);
+	HookEvent("bullet_impact", Event_Penetrated, EventHookMode_Pre);
+	HookEvent("weapon_fire", Event_Penetrated, EventHookMode_Pre);
 	
 	HookEvent("player_blind", Event_PlayerBlind);
 	HookEvent("flashbang_detonate", Event_PlayerBlind);
@@ -274,6 +276,7 @@ public void Event_Penetrated(Event event, const char[] name, bool dontBroadcast)
 	else
 	{
 		g_flPlayerLastShot[client] = view_as<float>({ 0.0, 0.0, 0.0 });
+		g_iPlayerKills[client] = 0;
 	}
 }
 
@@ -287,6 +290,7 @@ public void OnClientDisconnect(int client)
 	g_iPlayerBlind[client] = 0;
 	g_flFlashBangTime[client] = 0.0;
 	g_flPlayerLastShot[client] = view_as<float>({ 0.0, 0.0, 0.0 });
+	g_iPlayerKills[client] = 0;
 	
 	for (int i = 0; i < sizeof(g_iPlayerDamage); i++)
 	{
@@ -331,21 +335,22 @@ public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast
 	}
 	
 	
-	if (g_hBlind.IntValue)
+	if (g_hBlind.BoolValue)
 	{
 		event.SetBool("attackerblind", GetPlayerBlind(attacker) > 0);
 	}
 	
 	int penetrated = GetPlayerPenetrated(attacker, event);
-	if (g_hPenetrated.IntValue)
+	if (g_hPenetrated.BoolValue)
 	{
 		event.SetInt("penetrated", penetrated);
 	}
 	
-	if (g_hSmoke.IntValue)
+	if (g_hSmoke.BoolValue)
 	{
 		event.SetBool("smoke", IsSmokeKill(client, attacker, penetrated > 0));
 	}
+	g_iPlayerKills[attacker]++;
 }
 
 int GetPlayerPenetrated(int client, Event event)
@@ -361,6 +366,10 @@ int GetPlayerPenetrated(int client, Event event)
 	{
 		return 0;
 	}
+	if (g_iPlayerKills[client] > 0)
+	{
+		return 1;
+	}
 	
 	float ClientPos[3]; GetClientEyePosition(client, ClientPos);
 	TR_TraceRayFilter(ClientPos, g_flPlayerLastShot[client], MASK_SHOT, RayType_EndPoint, Filter_LocalPlayer, client);
@@ -370,7 +379,10 @@ int GetPlayerPenetrated(int client, Event event)
 
 public bool Filter_LocalPlayer(int entity, int mask, any target)
 {
-	return (entity != target);
+	if (!CM_DefaultFilter(entity, target, mask))
+		return false;
+	
+	return entity != target;
 }
 
 int GetPlayerBlind(int client)
