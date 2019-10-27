@@ -87,7 +87,7 @@ public void OnPluginStart()
 	CM_TagsInit();
 	CM_AutoBhopInit();
 	
-	for (int i = 1; i < MaxClients; i++)
+	for (int i = 1; i < MaxClients+1; i++)
 	{
 		if (IsClientConnected(i) && !IsFakeClient(i))
 		{
@@ -104,7 +104,6 @@ public void OnPluginStart()
 
 public void OnPluginEnd()
 {
-	CM_AutoBhopDisable();
 	CM_SmokeFixDisable();
 }
 
@@ -211,7 +210,6 @@ public void OnClientPutInServer(int client)
 	if ((g_hAutoBhop.BoolValue || g_hDisableBhop.BoolValue) && !IsFakeClient(client))
 	{
 		SDKHook(client, SDKHook_PreThink, OnClientPreThink);
-		SDKHook(client, SDKHook_PostThink, OnClientPostThink);
 	}
 }
 
@@ -381,74 +379,27 @@ public void TagsCvarHook(ConVar convar, const char[] oldValue, const char[] newV
 }
 
 
-
-Address aAutoBhopAddr = Address_Null;
-int iPatchSize = 0;
-NumberType iPatchType = NumberType_Int8;
-int iBackupPatch = 0;
-bool bAutoBhopPatched = false;
-
 void CM_AutoBhopInit()
 {
-	Handle hConfig = LoadGameConfigFile("clientmod");
-	if(hConfig == INVALID_HANDLE)
-	{
-		SetFailState("Load clientmod gamedata Config Fail");
-	}
-	
-	aAutoBhopAddr = GameConfGetAddress(hConfig, "CCSGameMovement_CheckJumpButton");
-	int iOffset = GameConfGetOffset(hConfig, "CheckJumpButtonOffset");
-	iPatchSize = GameConfGetOffset(hConfig, "PatchSize");
-	
-	CloseHandle(hConfig);
-	
-	if (aAutoBhopAddr == Address_Null || iOffset == -1 || iPatchSize == -1)
-	{
-		SetFailState("Read clientmod gamedata Config Fail");
-	}
-	aAutoBhopAddr += view_as<Address>(iOffset) + view_as<Address>(iPatchSize == 1 ? 1 : 2);
-	iPatchType = iPatchSize == 1 ? NumberType_Int8 : NumberType_Int32;
-	iBackupPatch = LoadFromAddress(aAutoBhopAddr, iPatchType);
-	
 	g_hAutoBhop.AddChangeHook(AutoBhopHook);
 	g_hDisableBhop.AddChangeHook(AutoBhopHook);
 }
 
 public void AutoBhopHook(ConVar convar, const char[] oldValue, const char[] newValue)
 {
-	for (int i = 1; i < MaxClients; i++)
+	for (int i = 1; i < MaxClients+1; i++)
 	{
 		if (IsClientInGame(i) && !IsFakeClient(i))
 		{
 			if (g_hAutoBhop.BoolValue || g_hDisableBhop.BoolValue)
 			{
 				SDKHook(i, SDKHook_PreThink, OnClientPreThink);
-				SDKHook(i, SDKHook_PostThink, OnClientPostThink);
 			}
 			else
 			{
 				SDKUnhook(i, SDKHook_PreThink, OnClientPreThink);
-				SDKUnhook(i, SDKHook_PostThink, OnClientPostThink);
 			}
 		}
-	}
-}
-
-public void CM_AutoBhopEnable()
-{
-	if (!bAutoBhopPatched)
-	{
-		StoreToAddress(aAutoBhopAddr, 0, iPatchType);
-		bAutoBhopPatched = true;
-	}
-}
-
-public void CM_AutoBhopDisable()
-{
-	if (bAutoBhopPatched)
-	{
-		StoreToAddress(aAutoBhopAddr, iBackupPatch, iPatchType);
-		bAutoBhopPatched = false;
 	}
 }
 
@@ -463,16 +414,13 @@ public void OnClientPreThink(int client)
 		Call_Finish(result);
 		if (result != Plugin_Stop)
 		{
-			CM_AutoBhopEnable();
-			return;
+			int m_nOldButtons = GetEntProp(client, Prop_Data, "m_nOldButtons");
+			if (m_nOldButtons & IN_JUMP)
+			{
+				SetEntProp(client, Prop_Data, "m_nOldButtons", m_nOldButtons & ~IN_JUMP);
+			}
 		}
 	}
-	OnClientPostThink(client);
-}
-
-public void OnClientPostThink(int client)
-{
-	CM_AutoBhopDisable();
 }
 
 void PreventBunnyJumping(int client)
@@ -509,6 +457,44 @@ Address aSmokeFixAddr = Address_Null;
 float fSmokeFixValue =  108.5;
 bool bSmokeFixed = false;
 
+Address FindSmokeFix(Address pStart)
+{
+	int pattern[] = { 0x0F, 0x2F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F, 0x97 };
+	for(int i = 0; i < 3000; i++)
+	{
+		if (LoadFromAddress(pStart, NumberType_Int8) == pattern[0])
+		{
+			bool bFound = true;
+			for (int j = 1; j < sizeof(pattern); j++)
+			{
+				int iDestByte = LoadFromAddress(pStart + view_as<Address>(j), NumberType_Int8);
+				int iSrcByte = pattern[j];
+				
+				if (iSrcByte != 0xFF)
+				{
+					if(iDestByte != iSrcByte)
+					{
+						bFound = false;
+						break;
+					}
+				}
+			}
+			if (bFound)
+			{
+				Address pRet = pStart + view_as<Address>(3);
+				Address pTemp = view_as<Address>(LoadFromAddress(pRet, NumberType_Int32));
+				if (view_as<float>(LoadFromAddress(pTemp, NumberType_Int32)) == fSmokeFixValue)
+				{
+					return pRet;
+				}
+			}
+		}
+		
+		pStart++;
+	}
+	return Address_Null;
+}
+
 void CM_SmokeFixEnable(bool bInit = false)
 {
 	if (bInit)
@@ -534,11 +520,21 @@ void CM_SmokeFixEnable(bool bInit = false)
 		{
 			aSmokeFixAddr += view_as<Address>(iSmokeBlockOffset1);
 			aSmokeFixAddr += view_as<Address>(LoadFromAddress(aSmokeFixAddr, NumberType_Int32) + 4);
+			aSmokeFixAddr += view_as<Address>(iSmokeBlockOffset2);
 		}
-		aSmokeFixAddr += view_as<Address>(iSmokeBlockOffset2);
+		else
+		{
+			aSmokeFixAddr = FindSmokeFix(aSmokeFixAddr);
+		}
+		
+		if (aSmokeFixAddr == Address_Null)
+		{
+			SetFailState("Invalid smoke patch address");
+			return;
+		}
+		
 		
 		aSmokeFixAddr = view_as<Address>(LoadFromAddress(aSmokeFixAddr, NumberType_Int32));
-		
 		if (view_as<float>(LoadFromAddress(aSmokeFixAddr, NumberType_Int32)) != fSmokeFixValue)
 		{
 			SetFailState("Invalid smoke patch value");
