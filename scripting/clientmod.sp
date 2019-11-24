@@ -47,6 +47,7 @@ ConVar g_hDisableBhop = null;
 ConVar g_hDisableBhopScale = null;
 ConVar g_hTeamT = null;
 ConVar g_hTeamCT = null;
+ConVar g_hMaxSpeed = null;
 
 public void OnPluginStart()
 {
@@ -381,6 +382,7 @@ public void TagsCvarHook(ConVar convar, const char[] oldValue, const char[] newV
 
 void CM_AutoBhopInit()
 {
+	g_hMaxSpeed = FindConVar("sv_maxspeed");
 	g_hAutoBhop.AddChangeHook(AutoBhopHook);
 	g_hDisableBhop.AddChangeHook(AutoBhopHook);
 }
@@ -429,7 +431,10 @@ void PreventBunnyJumping(int client)
 	!(GetEntityMoveType(client) == MOVETYPE_ISOMETRIC || GetEntityMoveType(client) == MOVETYPE_WALK))
 		return;
 	
-	float maxscaledspeed = g_hDisableBhopScale.FloatValue * GetEntPropFloat(client, Prop_Send, "m_flMaxspeed");
+	float m_flMaxspeed = GetEntPropFloat(client, Prop_Send, "m_flMaxspeed");
+	float sv_maxspeed = g_hMaxSpeed.FloatValue;
+	
+	float maxscaledspeed = g_hDisableBhopScale.FloatValue * (m_flMaxspeed > sv_maxspeed ? sv_maxspeed : m_flMaxspeed);
 	if (maxscaledspeed <= 0.0)
 		return;
 		
