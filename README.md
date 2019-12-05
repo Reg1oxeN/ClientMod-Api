@@ -8,7 +8,7 @@
 | Plugin | Description |
 | --- | --- |
 | **clientmod.sp** | Main plugin and ``ClientMod Api`` support |
-| **clientmod_assistkill_example.sp** | Example of using ``kill assist support`` on ClientMod death notice |
+| **clientmod_deathnotice.sp** | Extended ClientMod death notice with ``assist, penetration, flash and smoke`` kills |
 | **clientmod_auth_example.sp** | Example of using ClientMod ``client authorization`` |
 | **clientmod_autobhop_example.sp** | Example of using server-side ``auto bunny hopping`` and ``server browser tags`` |
 | **clientmod_blockmessage_example.sp** | Example of blocking ``new messages ClientMod in chat`` |
