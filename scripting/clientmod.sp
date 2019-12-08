@@ -135,13 +135,6 @@ public Action Command_Tags(int args)
 	PrintToServer("[ClientMod] Usage:\nclientmod_tags add any_tag\nclientmod_tags remove any_tag");
 	return Plugin_Handled;
 }
-public Action Command_RemoveTag(int args)
-{
-	char text[192];
-	GetCmdArgString(text, sizeof(text));
- 
-}
-
 
 public void TeamCvarHook(ConVar convar, const char[] oldValue, const char[] newValue)
 {
