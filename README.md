@@ -8,7 +8,7 @@
 | Plugin | Description |
 | --- | --- |
 | **clientmod.sp** | Main plugin and ``ClientMod Api`` support |
-| **clientmod_assistkill_example.sp** | Example of using ``kill assist support`` on ClientMod death notice |
+| **clientmod_deathnotice.sp** | Extended ClientMod death notice with ``assist, penetration, flash and smoke`` kills |
 | **clientmod_auth_example.sp** | Example of using ClientMod ``client authorization`` |
 | **clientmod_autobhop_example.sp** | Example of using server-side ``auto bunny hopping`` and ``server browser tags`` |
 | **clientmod_blockmessage_example.sp** | Example of blocking ``new messages ClientMod in chat`` |
@@ -31,7 +31,7 @@
 | **clientmod_smoke_mode** | ``Smoke grenade control for se_newsmoke``<br/>**0** - disable<br/>**1** - disable excess dust for avoid transparent bug (the best choice)<br/>**2** - reduce life time by 2 minutes as in Steam version of CS:S<br/>**3** - both mode |
 | **clientmod_smoke_fix** | ``Fixes the spotting of enemies on a radar in smoke``<br/>**0** - disable<br/>**1** - enable<br/> |
 | **clientmod_private** | ``Private mode for server``<br/>**0** - disable<br/>**1** - allow access only to the latest version of ClientMod.<br/>**2** - allow access to the any version of ClientMod |
-| **clientmod_private_message** | ``Message for kick clients if clientmod_private > 0`` |
+| **clientmod_private_message** | ``Message for kick clients if private mode is activated`` |
 | **clientmod_team_t** | ``The custom name of the Terrorist team in the scoreboard`` |
 | **clientmod_team_ct** | ``The custom name of the Counter-Terrorist team in the scoreboard`` |
 
