@@ -1,7 +1,7 @@
 # ClientMod-Api
 
 ## Required
-- **SourceMod 1.7** or later
+- **SourceMod 1.8** or later
 - **CS:S v34 server** with ``4044 build for windows`` or ``4100 build for linux``
 
 ## Info
