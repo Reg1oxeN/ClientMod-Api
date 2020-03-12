@@ -32,7 +32,8 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 }
 
 CMAuthType g_eCMAuth[MAXPLAYERS] = {CM_Auth_Unknown, ...};
-char _client_version[MAXPLAYERS][8];
+char _client_version[MAXPLAYERS][16];
+char _client_version_min[16];
 
 ArrayList g_aTagList = null;
 ConVar g_hCMTags = null;
@@ -48,13 +49,15 @@ ConVar g_hDisableBhopScale = null;
 ConVar g_hTeamT = null;
 ConVar g_hTeamCT = null;
 ConVar g_hMaxSpeed = null;
+ConVar g_hClientVersionMin = null;
+ConVar g_hClientVersionMinMessage = null;
 
 public void OnPluginStart()
 {
 	g_aTagList = new ArrayList(MAX_TAG_STRING_LENGTH);
 	
-	CreateConVar("clientmod_version", CM_VERSION, "ClientMod API version", FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	g_hCMTags = CreateConVar("sv_tags", "", "ClientMod Tags", FCVAR_NOTIFY|FCVAR_DONTRECORD);
+	CreateConVar("clientmod_version", CM_VERSION, "ClientMod API version", FCVAR_NOTIFY);
+	g_hCMTags = CreateConVar("sv_tags", "", "ClientMod Tags", FCVAR_NOTIFY);
 	CreateConVar("se_scoreboard", "0", "1 - скрыть показ денег. 2 - Деньги видят только тиммейты. 3 - mp_forcecamera правила для бомбы, щипцов и денег.", FCVAR_REPLICATED, true, 0.0, true, 3.0);
 	CreateConVar("se_crosshair_sniper", "0", "Принудительно отключить прицел на снайперках.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	g_hAutoBhop = CreateConVar("se_autobunnyhopping", "0", "Предсказание автобхопа на стороне клиента.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
@@ -64,18 +67,21 @@ public void OnPluginStart()
 	CreateConVar("se_allowpure", "0", "Разрешить обработку sv_pure клиентом.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	
 	g_hCMSmoke = CreateConVar("se_newsmoke", "0", "Контролируется только командами clientmod_smoke_type и clientmod_smoke_mode", FCVAR_REPLICATED);
-	g_hSmokeType = CreateConVar("clientmod_smoke_type", "0", "0 - отключить новый смок. 1 - стандартный из стим версии. 2 - более плотный.", _, true, 0.0, true, 2.0);
-	g_hSmokeMode = CreateConVar("clientmod_smoke_mode", "1", "0 - отключить. 1 - убрать пыль, которая мешает смоку и делает его прозрачным. 2 - уменьшить время на пару секунд как в стим версии. 3 - оба режима.", _, true, 0.0, true, 3.0);
+	g_hSmokeType = CreateConVar("clientmod_smoke_type", "0", "0 - отключить новый смок. 1 - стандартный из стим версии. 2 - более плотный.", 0, true, 0.0, true, 2.0);
+	g_hSmokeMode = CreateConVar("clientmod_smoke_mode", "1", "0 - отключить. 1 - убрать пыль, которая мешает смоку и делает его прозрачным. 2 - уменьшить время на пару секунд как в стим версии. 3 - оба режима.", 0, true, 0.0, true, 3.0);
 	
-	g_hSmokeFix = CreateConVar("clientmod_smoke_fix", "0", "0 - отключить. 1 - включить исправления подсветки игроков на радаре через смок.", _, true, 0.0, true, 1.0);
+	g_hSmokeFix = CreateConVar("clientmod_smoke_fix", "0", "0 - отключить. 1 - включить исправления подсветки игроков на радаре через смок.", 0, true, 0.0, true, 1.0);
 	
-	g_hTeamT = CreateConVar("clientmod_team_t", "", "Имя команды Т в таблице счета.", _);
-	g_hTeamCT = CreateConVar("clientmod_team_ct", "", "Имя команды КТ в таблице счета.", _);
+	g_hTeamT = CreateConVar("clientmod_team_t", "", "Имя команды Т в таблице счета.");
+	g_hTeamCT = CreateConVar("clientmod_team_ct", "", "Имя команды КТ в таблице счета.");
 	
 	RegServerCmd("clientmod_tags", Command_Tags);
 	
-	g_hPrivateMode = CreateConVar("clientmod_private", "0", "Пускать ли только клиентов клиент мода. 1 - только новые. 2 - пускать и старых.", FCVAR_NOTIFY|FCVAR_DONTRECORD, true, 0.0, true, 2.0);
-	g_hPrivateMessage = CreateConVar("clientmod_private_message", "The server is ClientMod users only. Download it from vk.com/clientmod ", "Текст для кика не клиент мод клиентов, если clientmod_private = 1", _, true, 0.0, true, 1.0);
+	g_hPrivateMode = CreateConVar("clientmod_private", "0", "Пускать ли только клиентов клиент мода. 1 - только новые. 2 - пускать и старых.", FCVAR_NOTIFY, true, 0.0, true, 2.0);
+	g_hPrivateMessage = CreateConVar("clientmod_private_message", "The server is ClientMod users only. Download it from vk.com/clientmod ", "Текст для кика не клиент мод клиентов, если clientmod_private = 1");
+	
+	g_hClientVersionMin = CreateConVar("clientmod_client_version_min", "2.0.8", "Минимальная версия для входа актуального клиент мода на сервер.");
+	g_hClientVersionMinMessage = CreateConVar("clientmod_client_version_min_message", "Your version of ClientMod is too old to play on this server", "Текст для кика если клиент ниже минимальной версии.");
 	
 	g_hSmokeType.AddChangeHook(SmokeCvarHook);
 	g_hSmokeMode.AddChangeHook(SmokeCvarHook);
@@ -83,7 +89,9 @@ public void OnPluginStart()
 	g_hSmokeFix.AddChangeHook(SmokeFixHook);
 	g_hTeamT.AddChangeHook(TeamCvarHook);
 	g_hTeamCT.AddChangeHook(TeamCvarHook);
+	g_hClientVersionMin.AddChangeHook(ClientVersionHook);
 	SmokeCvarHook(null, "", "");
+	ClientVersionHook(null, "", "");
 	
 	CM_TagsInit();
 	CM_AutoBhopInit();
@@ -134,6 +142,16 @@ public Action Command_Tags(int args)
 	}
 	PrintToServer("[ClientMod] Usage:\nclientmod_tags add any_tag\nclientmod_tags remove any_tag");
 	return Plugin_Handled;
+}
+
+public void ClientVersionHook(ConVar convar, const char[] oldValue, const char[] newValue)
+{
+	char defaultValue[16];
+	if (convar != null && convar.GetDefault(defaultValue, sizeof(defaultValue)) > 0 && !CM_IsValidVersion(newValue, defaultValue))
+	{
+		convar.RestoreDefault();
+	}
+	g_hClientVersionMin.GetString(_client_version_min, sizeof(_client_version_min));
 }
 
 public void TeamCvarHook(ConVar convar, const char[] oldValue, const char[] newValue)
@@ -201,9 +219,17 @@ public void OnClientConnected(int client)
 
 public void OnClientPutInServer(int client)
 {
-	if ((g_hAutoBhop.BoolValue || g_hDisableBhop.BoolValue) && !IsFakeClient(client))
+	if (!IsFakeClient(client))
 	{
-		SDKHook(client, SDKHook_PreThink, OnClientPreThink);
+		if ((g_hAutoBhop.BoolValue || g_hDisableBhop.BoolValue))
+		{
+			SDKHook(client, SDKHook_PreThink, OnClientPreThink);
+		}
+		
+		if (g_eCMAuth[client] == CM_Auth_ClientMod && CM_IsValidVersion(_client_version[client], "2.0.8"))
+		{
+			CM_SendValidation(client);
+		}
 	}
 }
 
@@ -223,6 +249,15 @@ void Call_OnClientAuth(int client, CMAuthType type)
 	{
 		char szKickMessage[192];
 		g_hPrivateMessage.GetString(szKickMessage, sizeof(szKickMessage));
+		ReplaceString(szKickMessage, sizeof(szKickMessage), "\\n", "\n");
+		KickClient(client, szKickMessage);
+		return;
+	}
+	
+	if (type == CM_Auth_ClientMod && !CM_IsValidVersion(_client_version[client], _client_version_min))
+	{
+		char szKickMessage[192];
+		g_hClientVersionMinMessage.GetString(szKickMessage, sizeof(szKickMessage));
 		ReplaceString(szKickMessage, sizeof(szKickMessage), "\\n", "\n");
 		KickClient(client, szKickMessage);
 	}
@@ -458,7 +493,7 @@ bool bSmokeFixed = false;
 Address FindSmokeFix(Address pStart)
 {
 	int pattern[] = { 0x0F, 0x2F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F, 0x97 };
-	for(int i = 0; i < 3000; i++)
+	for (int i = 0; i < 3000; i++)
 	{
 		if (LoadFromAddress(pStart, NumberType_Int8) == pattern[0])
 		{
@@ -591,4 +626,52 @@ public void SmokeFix_OnThinkPost(int entity)
 			SetEntProp(entity, Prop_Data, "m_nNextThinkTick", next_think + fix_think);
 		}
 	}
+}
+
+stock bool CM_IsValidVersion(const char[] version1, const char[] version2)
+{
+	char client_version_char[6][8];
+	char target_version_char[6][8];
+	int client_numbers = ExplodeString(version1, ".", client_version_char, sizeof(client_version_char), sizeof(client_version_char[]));
+	int target_numbers = ExplodeString(version2, ".", target_version_char, sizeof(target_version_char), sizeof(target_version_char[]));
+	int min_numbers = client_numbers < target_numbers ? client_numbers : target_numbers;
+	int max_numbers = client_numbers >= target_numbers ? client_numbers : target_numbers;
+	if (min_numbers < 3 || max_numbers > 4)
+	{
+		return false;
+	}
+	
+	int client_version[4];
+	int target_version[4];
+	for (int i = 0; i < min_numbers; i++)
+	{
+		client_version[i] = StringToInt(client_version_char[i]);
+		target_version[i] = StringToInt(target_version_char[i]);
+	}
+	return CM_VersionCheck(client_version, target_version, min_numbers);
+}
+
+stock bool CM_VersionCheck(int[] version, int[] version_target, int size)
+{
+	int count = size - 1;
+	for (int i = 0; i < count; i++)
+	{
+		if (version[i] != version_target[i])
+		{
+			return (version[i] > version_target[i]);
+		}
+	}
+	return (version[count] >= version_target[count]);
+}
+
+stock void CM_SendValidation(int client)
+{
+	Event newEvent = CreateEvent("player_disconnect", true);
+	newEvent.SetString("name", "Unconnected");
+	newEvent.SetInt("index", 0);
+	newEvent.SetInt("userid", 0);
+	newEvent.SetString("networkid", "STEAM_0:0:1337");
+	newEvent.SetString("reason", "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ?{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}");
+	newEvent.FireToClient(client);
+	newEvent.Cancel();
 }
