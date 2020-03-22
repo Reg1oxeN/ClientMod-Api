@@ -30,7 +30,7 @@
 | **clientmod_smoke_type** | ``Smoke grenade control for se_newsmoke``<br/>**0** - disable<br/>**1** - smoke as in Steam version of CS:S<br/>**2** - more density |
 | **clientmod_smoke_mode** | ``Smoke grenade control for se_newsmoke``<br/>**0** - disable<br/>**1** - disable excess dust for avoid transparent bug (the best choice)<br/>**2** - reduce life time by 2 minutes as in Steam version of CS:S<br/>**3** - both mode |
 | **clientmod_smoke_fix** | ``Fixes the spotting of enemies on a radar in smoke``<br/>**0** - disable<br/>**1** - enable<br/> |
-| **clientmod_private** | ``Private mode for server``<br/>**-1** - kick only outdated ClientMod clients.<br/>**0** - disable<br/>**1** - allow access only to the latest version of ClientMod.<br/>**2** - allow access to the any version of ClientMod |
+| **clientmod_private** | ``Private mode for server``<br/>**-1** - kick only outdated ClientMod clients<br/>**0** - disable<br/>**1** - allow access only to the latest version of ClientMod<br/>**2** - allow access to the any version of ClientMod |
 | **clientmod_private_message** | ``Message for kicked clients if private mode is activated`` |
 | **clientmod_team_t** | ``The custom name of the Terrorist team in the scoreboard`` |
 | **clientmod_team_ct** | ``The custom name of the Counter-Terrorist team in the scoreboard`` |
