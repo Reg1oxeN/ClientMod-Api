@@ -32,7 +32,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 }
 
 CMAuthType g_eCMAuth[MAXPLAYERS] = {CM_Auth_Unknown, ...};
-bool g_bClientLog[MAXPLAYERS] = {false, ...};
+bool g_bClientLog[MAXPLAYERS] = {true, ...};
 char _client_version[MAXPLAYERS][16];
 char _client_version_min[16];
 
@@ -240,17 +240,21 @@ public void OnClientPutInServer(int client)
 public void OnClientDisconnect(int client)
 {
 	g_eCMAuth[client] = CM_Auth_Unknown;
+	g_bClientLog[client] = true;
 }
 
 public void OnClientAuthorized(int client, const char[] auth)
 {
-	PrintLog(client, g_eCMAuth[client]);
+	if (!IsFakeClient(client) && !IsClientInKickQueue(client))
+		PrintLog(client, g_eCMAuth[client]);
 }
 
 void PrintLog(int client, CMAuthType type)
 {
 	if (g_hLogging.BoolValue && !g_bClientLog[client])
 	{
+		g_bClientLog[client] = true;
+		
 		char clInfo[128];
 		switch (type)
 		{
@@ -269,8 +273,7 @@ void PrintLog(int client, CMAuthType type)
 			}
 		}
 		
-		LogAction(client, -1, "\"%L\" auth with %s", client, clInfo);
-		g_bClientLog[client] = true;
+		LogAction(client, -1, "\"%L\" auth with %s [debug:%i]", client, clInfo);
 	}
 }
 
