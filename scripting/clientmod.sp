@@ -258,6 +258,7 @@ void PrintLog(int client, CMAuthType type)
 		char clInfo[128];
 		switch (type)
 		{
+			case CM_Auth_Unknown:				return;
 			case CM_Auth_Original: 				strcopy(clInfo, sizeof(clInfo), "Original client");
 			case CM_Auth_ClientMod_Outdated: 	FormatEx(clInfo, sizeof(clInfo), "Too old version ClientMod \"%s\"", _client_version[client]);
 			case CM_Auth_ClientMod: 			
