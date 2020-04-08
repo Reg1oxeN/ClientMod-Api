@@ -273,7 +273,7 @@ void PrintLog(int client, CMAuthType type)
 			}
 		}
 		
-		LogAction(client, -1, "\"%L\" auth with %s [debug:%i]", client, clInfo);
+		LogAction(client, -1, "\"%L\" auth with %s", client, clInfo);
 	}
 }
 
