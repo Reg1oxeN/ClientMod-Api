@@ -32,6 +32,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 }
 
 CMAuthType g_eCMAuth[MAXPLAYERS] = {CM_Auth_Unknown, ...};
+bool g_bClientLog[MAXPLAYERS] = {false, ...};
 char _client_version[MAXPLAYERS][16];
 char _client_version_min[16];
 
@@ -241,14 +242,14 @@ public void OnClientDisconnect(int client)
 	g_eCMAuth[client] = CM_Auth_Unknown;
 }
 
-void Call_OnClientAuth(int client, CMAuthType type)
+public void OnClientAuthorized(int client, const char[] auth)
 {
-	Call_StartForward(g_OnClientAuth);
-	Call_PushCell(client);
-	Call_PushCell(type);
-	Call_Finish();
-	
-	if (g_hLogging.BoolValue)
+	PrintLog(client, g_eCMAuth[client]);
+}
+
+void PrintLog(int client, CMAuthType type)
+{
+	if (g_hLogging.BoolValue && !g_bClientLog[client])
 	{
 		char clInfo[128];
 		switch (type)
@@ -269,10 +270,27 @@ void Call_OnClientAuth(int client, CMAuthType type)
 		}
 		
 		LogAction(client, -1, "\"%L\" auth with %s", client, clInfo);
+		g_bClientLog[client] = true;
+	}
+}
+
+void Call_OnClientAuth(int client, CMAuthType type)
+{
+	Call_StartForward(g_OnClientAuth);
+	Call_PushCell(client);
+	Call_PushCell(type);
+	Call_Finish();
+	
+	g_bClientLog[client] = false;
+	
+	if (IsClientAuthorized(client))
+	{
+		PrintLog(client, type);
 	}
 	
 	if ((g_hPrivateMode.IntValue == 1 && type != CM_Auth_ClientMod) || (g_hPrivateMode.IntValue == 2 && type < CM_Auth_ClientMod))
 	{
+		PrintLog(client, type);
 		char szKickMessage[192];
 		g_hPrivateMessage.GetString(szKickMessage, sizeof(szKickMessage));
 		ReplaceString(szKickMessage, sizeof(szKickMessage), "\\n", "\n");
@@ -282,6 +300,7 @@ void Call_OnClientAuth(int client, CMAuthType type)
 	
 	if ((type == CM_Auth_ClientMod && !CM_IsValidVersion(_client_version[client], _client_version_min)) || (g_hPrivateMode.IntValue == -1 && type == CM_Auth_ClientMod_Outdated))
 	{
+		PrintLog(client, type);
 		char szKickMessage[192];
 		g_hClientVersionMinMessage.GetString(szKickMessage, sizeof(szKickMessage));
 		ReplaceString(szKickMessage, sizeof(szKickMessage), "\\n", "\n");
