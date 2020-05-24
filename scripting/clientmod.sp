@@ -82,7 +82,7 @@ public void OnPluginStart()
 	g_hPrivateMode = CreateConVar("clientmod_private", "0", "Фильтрация клиентов. -1 - не пускать только устаревшие версии ClientMod и пускать обычных клиентов. 0 - отключить. 1 - пускать только актуальные версии ClientMod. 2 - пускать только актуальные и устаревшие версии ClientMod.", FCVAR_NOTIFY, true, -1.0, true, 2.0);
 	g_hPrivateMessage = CreateConVar("clientmod_private_message", "The server is ClientMod users only. Download it from https://clientmod.ru ", "Текст для кика не клиент мод клиентов, если clientmod_private = 1");
 	
-	g_hClientVersionMin = CreateConVar("clientmod_client_version_min", "2.0.8", "Минимальная версия для входа актуального клиент мода на сервер.");
+	g_hClientVersionMin = CreateConVar("clientmod_client_version_min", "2.0.9", "Минимальная версия для входа актуального клиент мода на сервер.");
 	g_hClientVersionMinMessage = CreateConVar("clientmod_client_version_min_message", "Your version of ClientMod is too old to play on this server", "Текст для кика если клиент ниже минимальной версии.");
 	
 	g_hLogging = CreateConVar("clientmod_logging", "1", "Логинование клиентов.", 0, true, 0.0, true, 1.0);
