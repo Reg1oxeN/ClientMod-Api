@@ -60,15 +60,15 @@ public void OnPluginStart()
 	
 	CreateConVar("clientmod_version", CM_VERSION, "ClientMod API version", FCVAR_NOTIFY|FCVAR_DONTRECORD).AddChangeHook(VersionCvarHook);
 	g_hCMTags = CreateConVar("sv_tags", "", "ClientMod Tags", FCVAR_NOTIFY|FCVAR_DONTRECORD);
-	CreateConVar("se_scoreboard", "0", "1 - скрыть показ денег. 2 - Деньги видят только тиммейты. 3 - mp_forcecamera правила для бомбы, щипцов и денег.", FCVAR_REPLICATED, true, 0.0, true, 3.0);
-	CreateConVar("se_crosshair_sniper", "0", "Принудительно отключить прицел на снайперках.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
-	g_hAutoBhop = CreateConVar("se_autobunnyhopping", "0", "Предсказание автобхопа на стороне клиента.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
-	g_hDisableBhop = CreateConVar("se_disablebunnyhopping", "0", "Ограниченое скорости бхопа.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
-	g_hDisableBhopScale = CreateConVar("se_disablebunnyhopping_scale", "1.2", "Множитель максимальной скорости бхопа от текущей максимальной скорости бега.", FCVAR_REPLICATED, true, 1.0, true, 2.0);
+	CreateConVar("se_scoreboard", /*не трогать*/"0"/*do not touch*/, "1 - скрыть показ денег. 2 - Деньги видят только тиммейты. 3 - mp_forcecamera правила для бомбы, щипцов и денег.", FCVAR_REPLICATED, true, 0.0, true, 3.0);
+	CreateConVar("se_crosshair_sniper", /*не трогать*/"0"/*do not touch*/, "Принудительно отключить прицел на снайперках.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
+	g_hAutoBhop = CreateConVar("se_autobunnyhopping", /*не трогать*/"0"/*do not touch*/, "Предсказание автобхопа на стороне клиента.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
+	g_hDisableBhop = CreateConVar("se_disablebunnyhopping", /*не трогать*/"0"/*do not touch*/, "Ограниченое скорости бхопа.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
+	g_hDisableBhopScale = CreateConVar("se_disablebunnyhopping_scale", /*не трогать*/"1.2"/*do not touch*/, "Множитель максимальной скорости бхопа от текущей максимальной скорости бега.", FCVAR_REPLICATED, true, 1.0, true, 2.0);
 	
-	CreateConVar("se_allowpure", "0", "Разрешить обработку sv_pure клиентом.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
+	CreateConVar("se_allowpure", /*не трогать*/"0"/*do not touch*/, "Разрешить обработку sv_pure клиентом.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	
-	g_hCMSmoke = CreateConVar("se_newsmoke", "0", "Контролируется только командами clientmod_smoke_type и clientmod_smoke_mode", FCVAR_REPLICATED);
+	g_hCMSmoke = CreateConVar("se_newsmoke", /*не трогать*/"0"/*do not touch*/, "Контролируется только командами clientmod_smoke_type и clientmod_smoke_mode", FCVAR_REPLICATED);
 	g_hSmokeType = CreateConVar("clientmod_smoke_type", "0", "0 - отключить новый смок. 1 - стандартный из стим версии. 2 - более плотный.", 0, true, 0.0, true, 2.0);
 	g_hSmokeMode = CreateConVar("clientmod_smoke_mode", "1", "0 - отключить. 1 - убрать пыль, которая мешает смоку и делает его прозрачным. 2 - уменьшить время на пару секунд как в стим версии. 3 - оба режима.", 0, true, 0.0, true, 3.0);
 	
