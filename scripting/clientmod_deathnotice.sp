@@ -19,6 +19,7 @@ public Plugin myinfo =
 int g_iPlayerBlind[MAXPLAYERS];
 float g_flFlashBangTime[MAXPLAYERS];
 float g_flPlayerLastShot[MAXPLAYERS][3];
+int g_iPlayerLastShotTick[MAXPLAYERS];
 int g_iPlayerDamage[MAXPLAYERS][MAXPLAYERS];
 int g_iPlayerKills[MAXPLAYERS];
 ArrayList g_vSmokeList = null;
@@ -272,6 +273,7 @@ public void Event_Penetrated(Event event, const char[] name, bool dontBroadcast)
 	    g_flPlayerLastShot[client][0] = event.GetFloat("x");
 	    g_flPlayerLastShot[client][1] = event.GetFloat("y");
 	    g_flPlayerLastShot[client][2] = event.GetFloat("z");
+	    g_iPlayerLastShotTick[client] = GetGameTickCount();
 	}
 	else
 	{
@@ -290,6 +292,7 @@ public void OnClientDisconnect(int client)
 	g_iPlayerBlind[client] = 0;
 	g_flFlashBangTime[client] = 0.0;
 	g_flPlayerLastShot[client] = view_as<float>({ 0.0, 0.0, 0.0 });
+	g_iPlayerLastShotTick[client] = 0;
 	g_iPlayerKills[client] = 0;
 	
 	for (int i = 0; i < sizeof(g_iPlayerDamage); i++)
@@ -356,6 +359,10 @@ public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast
 int GetPlayerPenetrated(int client, Event event)
 {
 	if (g_flPlayerLastShot[client][0] == 0.0 && g_flPlayerLastShot[client][1] == 0.0 && g_flPlayerLastShot[client][2] == 0.0)
+	{
+		return 0;
+	}
+	if (g_iPlayerLastShotTick[client] != GetGameTickCount())
 	{
 		return 0;
 	}
