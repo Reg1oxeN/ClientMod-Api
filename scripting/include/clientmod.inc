@@ -4,7 +4,7 @@
 #define _clientmod_included
 #include <clientmod\teams>
 
-#define CM_VERSION	"1.5.3"
+#define CM_VERSION	"1.6.0"
 #define CM_URL		"https://vk.com/clientmod"
 #define CM_AUTHOR	"Reg1oxeN"
 #define MAX_TAG_STRING_LENGTH 128
@@ -35,11 +35,14 @@ native bool CM_GetClientModVersion(int client, char[] version, int size);
 
 native CMAuthType CM_GetClientModAuth(int client);
 
+native void CM_EndUserMessage();
+
 stock bool CM_IsClientModUser(int client, bool allow_outdated = false)
 {
 	return allow_outdated ? CM_GetClientModAuth(client) >= CM_Auth_ClientMod : CM_GetClientModAuth(client) == CM_Auth_ClientMod;
 }
 
+#include <clientmod\usermessage>
 public SharedPlugin __pl_clientmod = 
 {
 	name = "clientmod",

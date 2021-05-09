@@ -16,6 +16,8 @@ public Plugin myinfo =
 	url = CM_URL
 };
 
+#define ASSIST_DAMAGE_THRESHOLD 40
+
 int g_iPlayerBlind[MAXPLAYERS];
 float g_flFlashBangTime[MAXPLAYERS];
 float g_flPlayerLastShot[MAXPLAYERS][3];
@@ -316,7 +318,7 @@ public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast
 		int assister = 0;
 		for (int i = 0; i < sizeof(g_iPlayerDamage); i++)
 		{
-			if (attacker != i && g_iPlayerDamage[client][i] >= 40 && g_iPlayerDamage[client][i] > max_damage)
+			if (attacker != i && g_iPlayerDamage[client][i] > ASSIST_DAMAGE_THRESHOLD && g_iPlayerDamage[client][i] > max_damage)
 			{
 				max_damage = g_iPlayerDamage[client][i];
 				assister = i;

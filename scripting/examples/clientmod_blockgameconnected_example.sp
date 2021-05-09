@@ -20,7 +20,8 @@ public Action MessageHandler(UserMsg msg_id, Handle bf, const players[], int pla
 	if (BfReadByte(bf) == 1)
 	{
 		char message[256];
-		if (BfReadString(bf, message, sizeof(message)) == 15 && message[0] == '#' && message[1] == 'G' && message[6] == 'c')
+		int len = BfReadString(bf, message, sizeof(message));
+		if ((len == 15 && message[0] == '#' && message[1] == 'G' && message[6] == 'c') || (len == 33 && message[0] == '#' && message[19] == 'G' && message[24] == 'c'))
 		{
 			return Plugin_Handled;
 		}

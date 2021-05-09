@@ -353,13 +353,13 @@ stock bool IsSource2009()
 }
 
 #define MAX_HUD_MESSAGE_LENGTH   (255-36)
-stock void CFormatHudText(char[] message_out, int size, const char[] message, any ...)
+stock void CFormatHudText(char[] message_out, int message_size, const char[] message, any ...)
 {
 	char buffer[MAX_HUD_MESSAGE_LENGTH], buffer2[MAX_HUD_MESSAGE_LENGTH];
 	Format(buffer, sizeof(buffer), "\x01%s", message);
 	VFormat(buffer2, sizeof(buffer2), buffer, 4);
 	MC_ReplaceColorCodes(buffer2);
-	strcopy(message_out, CMinValue(sizeof(buffer2), size), buffer2);
+	strcopy(message_out, CMinValue(sizeof(buffer2), message_size), buffer2);
 }
 
 stock any CMinValue(any value, any min)

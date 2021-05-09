@@ -24,6 +24,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	CreateNative("CM_GetClientModAuth", Native_GetClientModAuth);
 	CreateNative("CM_AddTag", Native_AddTag);
 	CreateNative("CM_RemoveTag", Native_RemoveTag);
+	CreateNative("CM_EndUserMessage", Native_EndUserMessage);
 	g_OnClientAuth = CreateGlobalForward("CM_OnClientAuth", ET_Ignore, Param_Cell, Param_Cell);
 	g_OnClientBhopRequest = CreateGlobalForward("CM_OnClientBhopRequest", ET_Hook, Param_Cell);
 	
@@ -82,7 +83,7 @@ public void OnPluginStart()
 	g_hPrivateMode = CreateConVar("clientmod_private", "0", "Фильтрация клиентов. -1 - не пускать только устаревшие версии ClientMod и пускать обычных клиентов. 0 - отключить. 1 - пускать только актуальные версии ClientMod. 2 - пускать только актуальные и устаревшие версии ClientMod.", FCVAR_NOTIFY, true, -1.0, true, 2.0);
 	g_hPrivateMessage = CreateConVar("clientmod_private_message", "The server is ClientMod users only. Download it from https://clientmod.ru ", "Текст для кика не клиент мод клиентов, если clientmod_private = 1");
 	
-	g_hClientVersionMin = CreateConVar("clientmod_client_version_min", "2.0.9", "Минимальная версия для входа актуального клиент мода на сервер.");
+	g_hClientVersionMin = CreateConVar("clientmod_client_version_min", "3.0.0.8220", "Минимальная версия для входа актуального клиент мода на сервер.");
 	g_hClientVersionMinMessage = CreateConVar("clientmod_client_version_min_message", "Your version of ClientMod is too old to play on this server", "Текст для кика если клиент ниже минимальной версии.");
 	
 	g_hLogging = CreateConVar("clientmod_logging", "1", "Логинование клиентов.", 0, true, 0.0, true, 1.0);
@@ -113,6 +114,7 @@ public void OnPluginStart()
 	}
 	CM_SmokeFixEnable(true);
 	SmokeFixHook(null, "", "");
+	CM_InitUserMassages();
 }
 
 public void OnPluginEnd()
@@ -219,7 +221,8 @@ public void OnClientConnected(int client)
 		
 	char _client_new[8];
 	bool bClientModNew = bClientModUser && (GetClientInfo(client, "~clientmod", _client_new, sizeof(_client_new)) &&
-		strlen(_client_new) == 3 && _client_new[0] == '2' && _client_new[1] == '.'&& _client_new[2] == '0');
+		strlen(_client_new) == 3 && _client_new[0] == '2' && _client_new[1] == '.'&& _client_new[2] == '0' &&
+		_client_version[client][0] == '3');
 	
 
 	g_eCMAuth[client] = bClientModNew ? CM_Auth_ClientMod : (bClientModUser ? CM_Auth_ClientMod_Outdated : CM_Auth_Original);
@@ -509,7 +512,7 @@ public void OnClientPreThink(int client)
 
 void PreventBunnyJumping(int client)
 {
-	if (!g_hDisableBhop.BoolValue || IsFakeClient(client) || !IsPlayerAlive(client) || !(GetEntityFlags(client) & FL_ONGROUND) || !(GetClientButtons(client) & IN_JUMP)||
+	if (!g_hDisableBhop.BoolValue || IsFakeClient(client) || !IsPlayerAlive(client) || !(GetEntityFlags(client) & FL_ONGROUND) || !(GetClientButtons(client) & IN_JUMP) ||
 	!(GetEntityMoveType(client) == MOVETYPE_ISOMETRIC || GetEntityMoveType(client) == MOVETYPE_WALK))
 		return;
 	
@@ -559,7 +562,7 @@ Address FindSmokeFix(Address pStart)
 				
 				if (iSrcByte != 0xFF)
 				{
-					if(iDestByte != iSrcByte)
+					if (iDestByte != iSrcByte)
 					{
 						bFound = false;
 						break;
@@ -587,7 +590,7 @@ void CM_SmokeFixEnable(bool bInit = false)
 	if (bInit)
 	{
 		Handle hConfig = LoadGameConfigFile("clientmod");
-		if(hConfig == INVALID_HANDLE)
+		if (hConfig == INVALID_HANDLE)
 		{
 			SetFailState("Load clientmod gamedata Config Fail");
 		}
@@ -720,12 +723,71 @@ stock bool CM_VersionCheck(int[] version, int[] version_target, int size)
 
 stock void CM_SendValidation(int client)
 {
-	Event newEvent = CreateEvent("player_disconnect", true);
-	newEvent.SetString("name", "Unconnected");
-	newEvent.SetInt("index", 0);
-	newEvent.SetInt("userid", 0);
-	newEvent.SetString("networkid", "STEAM_0:0:1337");
-	newEvent.SetString("reason", "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ?{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}");
+	Event newEvent = CreateEvent("player_info", true);
+	newEvent.SetString("name", "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ?{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}");
 	newEvent.FireToClient(client);
 	newEvent.Cancel();
+}
+
+
+Address aMessageFixAddr = Address_Null;
+int iMessageFixOriginal = 0;
+int iMessageFixPatch = 0;
+#define CMPatchUserMessages StoreToAddress(aMessageFixAddr, iMessageFixPatch, NumberType_Int32)
+#define CMUnpatchUserMessages StoreToAddress(aMessageFixAddr, iMessageFixOriginal, NumberType_Int32)
+stock void CM_InitUserMassages()
+{
+	Handle hConfig = LoadGameConfigFile("clientmod");
+	if (hConfig == INVALID_HANDLE)
+	{
+		SetFailState("Load clientmod gamedata Config Fail");
+	}
+	
+	aMessageFixAddr = GameConfGetAddress(hConfig, "Message_CheckMessageLength");
+	int iMessageOffset = GameConfGetOffset(hConfig, "Message_CheckMessageLengthOffset");
+	
+	CloseHandle(hConfig);
+	
+	if (aMessageFixAddr == Address_Null || iMessageOffset == -1)
+	{
+		SetFailState("Read clientmod gamedata Config Fail");
+	}
+	
+	if (iMessageOffset == 0)
+	{
+		if (LoadFromAddress(aMessageFixAddr, NumberType_Int8) == 0xE8)
+		{
+			aMessageFixAddr++;
+			aMessageFixAddr += view_as<Address>(LoadFromAddress(aMessageFixAddr, NumberType_Int8) + 4); 
+		}
+	}
+	else
+	{
+		aMessageFixAddr += view_as<Address>(iMessageOffset);
+	}
+	
+	iMessageFixOriginal = LoadFromAddress(aMessageFixAddr, NumberType_Int32);
+	
+	if (iMessageOffset != 0)
+	{
+		StoreToAddress(aMessageFixAddr, 0x8B, NumberType_Int8);
+		iMessageFixPatch = LoadFromAddress(aMessageFixAddr, NumberType_Int32);
+	}
+	else
+	{
+		StoreToAddress(aMessageFixAddr,							0x89,	NumberType_Int8);
+		StoreToAddress(aMessageFixAddr + view_as<Address>(1),	0xD0,	NumberType_Int8);
+		StoreToAddress(aMessageFixAddr + view_as<Address>(2),	0xC3,	NumberType_Int8);
+		StoreToAddress(aMessageFixAddr + view_as<Address>(3),	0x0,	NumberType_Int8);
+		iMessageFixPatch = LoadFromAddress(aMessageFixAddr, NumberType_Int32);
+	}
+	CMUnpatchUserMessages;
+}
+
+public int Native_EndUserMessage(Handle plugin, int numParams)
+{
+	CMPatchUserMessages;
+	EndMessage();
+	CMUnpatchUserMessages;
+	return 1;
 }

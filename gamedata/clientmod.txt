@@ -15,6 +15,17 @@
 					"signature" "CBotManager_IsLineBlockedBySmoke_Sig"
 				}
 			}
+			"Message_CheckMessageLength"
+			{
+				"windows"
+				{
+					"signature" "Message_CheckMessageLength_Sig"
+				}
+				"linux"
+				{
+					"signature" "Message_CheckMessageLength_Sig"
+				}
+			}
 		}
 		"Offsets"
 		{
@@ -28,6 +39,11 @@
 				"windows"		"1432"
 				"linux"			"1177"
 			}
+			"Message_CheckMessageLengthOffset"
+			{
+				"windows"		"0"
+				"linux"			"45"
+			}
 		}
 		
 		"Signatures"
@@ -37,6 +53,12 @@
 				"library"		"server"
 				"windows"		"\xE8\x2A\x2A\x2A\x2A\x84\xC0\x75\xCE"
 				"linux"			"@_ZN11CBotManager20IsLineBlockedBySmokeERK6VectorS2_f"
+			}
+			"Message_CheckMessageLength_Sig"
+			{
+				"library"		"engine"
+				"windows"		"\xE8\x2A\x2A\x2A\x2A\x85\xC0\x7C\x36"
+				"linux"			"@_ZN14CVEngineServer10MessageEndEv"
 			}
 		}
 	}
