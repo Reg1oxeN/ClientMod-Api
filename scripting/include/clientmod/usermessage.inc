@@ -47,7 +47,7 @@ stock void CM_PrintBigSayText(int client, const char[] format, any ...)
 	int clients[1]; clients[0] = client;
 	int msgLen = strlen(chatMsg);
 	int startIndex = 0;
-	int msgCount = msgLen / (CM_TEXT_LIMIT - 1) + 1;
+	int msgCount = msgLen / (BIG_TEXT_LIMIT - 1) + 1;
 	
 	char writeMsg[BIG_TEXT_LIMIT];
 	for (int i = 0; i < msgCount; i++)
