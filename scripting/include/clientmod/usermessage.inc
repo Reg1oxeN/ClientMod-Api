@@ -80,7 +80,7 @@ stock bool CM_PrintBigHudMsg(int client, int channel, float posX, float posY, fl
 	
 	char hudMsg[4096];
 	SetGlobalTransTarget(client);
-	VFormat(hudMsg, sizeof(hudMsg), format, 3);
+	VFormat(hudMsg, sizeof(hudMsg), format, 9);
 	Format(hudMsg, sizeof(hudMsg), "\x01%s", hudMsg);
 	MC_ReplaceColorCodes(hudMsg, 0, false, sizeof(hudMsg));
 	
