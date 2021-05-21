@@ -101,7 +101,7 @@ public void OnPluginStart()
 	CM_TagsInit();
 	CM_AutoBhopInit();
 	
-	for (int i = 1; i < MaxClients+1; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (IsClientConnected(i) && !IsFakeClient(i))
 		{
@@ -474,7 +474,7 @@ void CM_AutoBhopInit()
 
 public void AutoBhopHook(ConVar convar, const char[] oldValue, const char[] newValue)
 {
-	for (int i = 1; i < MaxClients+1; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (IsClientInGame(i) && !IsFakeClient(i))
 		{
