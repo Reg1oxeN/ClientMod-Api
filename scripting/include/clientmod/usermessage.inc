@@ -26,7 +26,7 @@ stock bool CM_PrintKeyHintText(int client, const char[] format, any ...)
 
 	BfWriteString(userMessage, buffer);
 	CM_EndUserMessage();
-
+	CloseHandle(userMessage);
 	return true;
 }
 
@@ -67,6 +67,7 @@ stock void CM_PrintBigSayText(int client, const char[] format, any ...)
 			BfWriteString(userMessage, writeMsg);
 			
 			CM_EndUserMessage();
+			CloseHandle(userMessage);
 		}
 	}
 }
@@ -119,6 +120,7 @@ stock bool CM_PrintBigHudMsg(int client, int channel, float posX, float posY, fl
 			BfWriteString(userMessage, writeMsg);
 			
 			CM_EndUserMessage();
+			CloseHandle(userMessage);
 		}
 	}
 	return true;
@@ -144,6 +146,7 @@ stock bool CM_AddSoundOverrides(int client, const char[] path, bool precache = f
 	BfWriteByte(userMessage, precache ? 1 : 0);
 	BfWriteString(userMessage, send_path);
 	CM_EndUserMessage();
+	CloseHandle(userMessage);
 	return true;
 }
 
@@ -163,5 +166,6 @@ stock bool CM_ClearSoundOverrides(int client)
 	
 	BfWriteByte(userMessage, 0);
 	CM_EndUserMessage();
+	CloseHandle(userMessage);
 	return true;
 }
