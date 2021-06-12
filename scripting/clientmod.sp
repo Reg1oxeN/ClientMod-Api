@@ -48,12 +48,15 @@ ConVar g_hPrivateMessage = null;
 ConVar g_hAutoBhop = null;
 ConVar g_hDisableBhop = null;
 ConVar g_hDisableBhopScale = null;
+ConVar g_hDuckFix = null;
 ConVar g_hTeamT = null;
 ConVar g_hTeamCT = null;
 ConVar g_hMaxSpeed = null;
 ConVar g_hClientVersionMin = null;
 ConVar g_hClientVersionMinMessage = null;
 ConVar g_hLogging = null;
+
+float g_fTimeLastUnducked[MAXPLAYERS] = {0.0, ...};
 
 public void OnPluginStart()
 {
@@ -66,6 +69,8 @@ public void OnPluginStart()
 	g_hAutoBhop = CreateConVar("se_autobunnyhopping", /*не трогать*/"0"/*do not touch*/, "Предсказание автобхопа на стороне клиента.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	g_hDisableBhop = CreateConVar("se_disablebunnyhopping", /*не трогать*/"0"/*do not touch*/, "Ограниченое скорости бхопа.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	g_hDisableBhopScale = CreateConVar("se_disablebunnyhopping_scale", /*не трогать*/"1.2"/*do not touch*/, "Множитель максимальной скорости бхопа от текущей максимальной скорости бега.", FCVAR_REPLICATED, true, 1.0, true, 2.0);
+	
+	g_hDuckFix = CreateConVar("se_duckfix", /*не трогать*/"0"/*do not touch*/, "Исправление быстрого приседания.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	
 	CreateConVar("se_allowpure", /*не трогать*/"0"/*do not touch*/, "Разрешить обработку sv_pure клиентом.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	
@@ -249,6 +254,7 @@ public void OnClientDisconnect(int client)
 {
 	g_eCMAuth[client] = CM_Auth_Unknown;
 	g_bClientLog[client] = true;
+	g_fTimeLastUnducked[client] = 0.0;
 }
 
 public void OnClientAuthorized(int client, const char[] auth)
@@ -541,7 +547,23 @@ void PreventBunnyJumping(int client)
 	SetEntPropVector(client, Prop_Data, "m_vecAbsVelocity", m_vecAbsVelocity);
 }
 
-
+public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3])
+{
+	if (g_hDuckFix.BoolValue && IsPlayerAlive(client) && !IsFakeClient(client) && (GetEntityFlags(client) & FL_ONGROUND))
+	{
+		int m_nOldButtons = GetEntProp(client, Prop_Data, "m_nOldButtons");
+		if (!(buttons & IN_DUCK) && (m_nOldButtons & IN_DUCK))
+		{
+			g_fTimeLastUnducked[client] = GetGameTime();
+		}
+		else if ((buttons & IN_DUCK) && !(m_nOldButtons & IN_DUCK) && ((GetEntityFlags(client) & FL_DUCKING) && (g_fTimeLastUnducked[client] > (GetGameTime() - 2.0))))
+		{
+			buttons &= ~IN_DUCK;
+			return Plugin_Changed;
+		}
+	}
+	return Plugin_Continue;
+}
 
 Address aSmokeFixAddr = Address_Null;
 float fSmokeFixValue =  108.5;
