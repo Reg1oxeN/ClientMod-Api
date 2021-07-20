@@ -2,9 +2,11 @@
 #define CMUserMsg_BigSayText	view_as<UserMsg>(35)
 #define CMUserMsg_BigHudMsg		view_as<UserMsg>(36)
 #define CMUserMsg_SoundOverrides view_as<UserMsg>(37)
+#define CMUserMsg_BigHudMsgBg	view_as<UserMsg>(38)
 
 #define BIG_TEXT_LIMIT 250
 #define MAX_BIGHUD_MESSAGE_LENGTH   (255-25)
+#define MAX_BIGHUDBG_MESSAGE_LENGTH   (255-37)
 
 stock bool CM_PrintKeyHintText(int client, const char[] format, any ...)
 {
@@ -111,6 +113,67 @@ stock bool CM_PrintBigHudMsg(int client, int channel, float posX, float posY, fl
 				BfWriteFloat(userMessage, holdTime);
 				
 				strcopy(writeMsg, MAX_BIGHUD_MESSAGE_LENGTH, hudMsg[startIndex]);
+			}
+			else
+			{
+				strcopy(writeMsg, sizeof(writeMsg), hudMsg[startIndex]);
+			}
+			startIndex += strlen(writeMsg);
+			BfWriteString(userMessage, writeMsg);
+			
+			CM_EndUserMessage();
+			CloseHandle(userMessage);
+		}
+	}
+	return true;
+}
+
+stock bool CM_PrintBigHudMsgBg(int client, int channel, float posX, float posY, float fadeIn, float fadeOut, float holdTime, int bgColor[4], float bgScale, const char[] format, any ...)
+{
+	if (!CM_IsClientModUser(client))
+	{
+		return false;
+	}
+	
+	char hudMsg[4096];
+	SetGlobalTransTarget(client);
+	VFormat(hudMsg, sizeof(hudMsg), format, 9);
+	Format(hudMsg, sizeof(hudMsg), "\x01%s", hudMsg);
+	MC_ReplaceColorCodes(hudMsg, 0, false, sizeof(hudMsg));
+	
+	int clients[1]; clients[0] = client;
+	int msgLen = strlen(hudMsg) - MAX_BIGHUDBG_MESSAGE_LENGTH;
+	int startIndex = 0;
+	int msgCount = msgLen > 1 ? (msgLen / (BIG_TEXT_LIMIT - 1) + 2) : 1;
+	
+	char writeMsg[BIG_TEXT_LIMIT];
+	for (int i = 0; i < msgCount; i++)
+	{
+		Handle userMessage = StartMessageEx(CMUserMsg_BigHudMsgBg, clients, 1, USERMSG_RELIABLE);
+		if (userMessage)
+		{
+			BfWriteByte(userMessage, channel);
+			BfWriteByte(userMessage, i);
+			if (i == 0)
+			{
+				BfWriteByte(userMessage, msgCount);
+				
+				BfWriteFloat(userMessage, posX);
+				BfWriteFloat(userMessage, posY);
+				
+				BfWriteFloat(userMessage, fadeIn);
+				BfWriteFloat(userMessage, fadeOut);
+				
+				BfWriteFloat(userMessage, holdTime);
+				
+				BfWriteByte(userMessage, bgColor[0]);
+				BfWriteByte(userMessage, bgColor[1]);
+				BfWriteByte(userMessage, bgColor[2]);
+				BfWriteByte(userMessage, bgColor[3]);
+				BfWriteFloat(userMessage, bgScale);
+				BfWriteFloat(userMessage, 0.0); //reserved
+				
+				strcopy(writeMsg, MAX_BIGHUDBG_MESSAGE_LENGTH, hudMsg[startIndex]);
 			}
 			else
 			{
