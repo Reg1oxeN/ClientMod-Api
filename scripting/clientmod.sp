@@ -78,7 +78,7 @@ public void OnPluginStart()
 	g_hSmokeType = CreateConVar("clientmod_smoke_type", "0", "0 - отключить новый смок. 1 - стандартный из стим версии. 2 - более плотный.", 0, true, 0.0, true, 2.0);
 	g_hSmokeMode = CreateConVar("clientmod_smoke_mode", "1", "0 - отключить. 1 - убрать пыль, которая мешает смоку и делает его прозрачным. 2 - уменьшить время на пару секунд как в стим версии. 3 - оба режима.", 0, true, 0.0, true, 3.0);
 	
-	g_hSmokeFix = CreateConVar("clientmod_smoke_fix", "0", "0 - отключить. 1 - включить исправления подсветки игроков на радаре через смок.", 0, true, 0.0, true, 1.0);
+	g_hSmokeFix = CreateConVar("clientmod_smoke_fix", "0", "0 - отключить. 1 - включить исправление подсветки игроков на радаре, если один из игроков находится в смоку.", 0, true, 0.0, true, 1.0);
 	
 	g_hTeamT = CreateConVar("clientmod_team_t", "", "Имя команды Т в таблице счета.");
 	g_hTeamCT = CreateConVar("clientmod_team_ct", "", "Имя команды КТ в таблице счета.");
