@@ -264,19 +264,10 @@ int GetPlayerPenetrated(int client, Event event)
 	}
 	
 	float ClientPos[3]; GetClientEyePosition(client, ClientPos);
-	TR_TraceRayFilter(ClientPos, g_flPlayerLastShot[client], MASK_SHOT, RayType_EndPoint, Filter_LocalPlayer, client);
+	TR_TraceRayFilter(ClientPos, g_flPlayerLastShot[client], MASK_SHOT, RayType_EndPoint, CM_FilterLocalPlayer, client);
 	TR_GetEndPosition(g_flPlayerLastShot[client]);
 	return TR_GetFraction() == 1.0 ? 0 : 1;
 }
-
-public bool Filter_LocalPlayer(int entity, int mask, any target)
-{
-	if (!CM_DefaultFilter(entity, target, mask))
-		return false;
-	
-	return entity != target;
-}
-
 
 public void OnSmokeSpawn(int entity)
 {

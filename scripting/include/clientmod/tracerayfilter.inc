@@ -175,3 +175,8 @@ stock bool CM_CGameRulesShouldCollide(CM_Collision_Group_t collisionGroup0, CM_C
 
 	return true;
 }
+
+stock bool CM_FilterLocalPlayer(int entity, int mask, any target)
+{
+	return CM_DefaultFilter(entity, target, mask) && entity != target;
+}

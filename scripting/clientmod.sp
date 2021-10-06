@@ -6,6 +6,9 @@
 #include <sdktools>
 #include <sdkhooks>
 #include <clientmod>
+#include <clientmod\tracerayfilter>
+
+//#define SHOOT_POSITION_FIX_DEBUG
 
 public Plugin myinfo =
 {
@@ -55,8 +58,13 @@ ConVar g_hMaxSpeed = null;
 ConVar g_hClientVersionMin = null;
 ConVar g_hClientVersionMinMessage = null;
 ConVar g_hLogging = null;
+ConVar g_hShootPosFix = null;
 
 float g_fTimeLastUnducked[MAXPLAYERS] = {0.0, ...};
+bool g_bDoShootPosFix[MAXPLAYERS];
+float g_fShootPosPre[MAXPLAYERS][3];
+float g_fShootPosPost[MAXPLAYERS][3];
+float g_fShootPosTemp[MAXPLAYERS][3];
 
 public void OnPluginStart()
 {
@@ -71,6 +79,7 @@ public void OnPluginStart()
 	g_hDisableBhopScale = CreateConVar("se_disablebunnyhopping_scale", /*не трогать*/"1.2"/*do not touch*/, "Множитель максимальной скорости бхопа от текущей максимальной скорости бега.", FCVAR_REPLICATED, true, 1.0, true, 2.0);
 	
 	g_hDuckFix = CreateConVar("se_duckfix", /*не трогать*/"0"/*do not touch*/, "Исправление быстрого приседания.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
+	g_hShootPosFix = CreateConVar("se_shootpositionfix", /*не трогать*/"0"/*do not touch*/, "https://forums.alliedmods.net/showthread.php?t=315405", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	
 	CreateConVar("se_allowpure", /*не трогать*/"0"/*do not touch*/, "Разрешить обработку sv_pure клиентом.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	
@@ -86,10 +95,10 @@ public void OnPluginStart()
 	RegServerCmd("clientmod_tags", Command_Tags);
 	
 	g_hPrivateMode = CreateConVar("clientmod_private", "0", "Фильтрация клиентов. -1 - не пускать только устаревшие версии ClientMod и пускать обычных клиентов. 0 - отключить. 1 - пускать только актуальные версии ClientMod. 2 - пускать только актуальные и устаревшие версии ClientMod.", FCVAR_NOTIFY, true, -1.0, true, 2.0);
-	g_hPrivateMessage = CreateConVar("clientmod_private_message", "The server is ClientMod users only. Download it from https://clientmod.ru ", "Текст для кика не клиент мод клиентов, если clientmod_private = 1");
+	g_hPrivateMessage = CreateConVar("clientmod_private_message", "The server is ClientMod users only. Download it from https://clientmod.ru ", "Текст для кика не ClientMod клиентов, если clientmod_private = 1");
 	
-	g_hClientVersionMin = CreateConVar("clientmod_client_version_min", "3.0.0.8220", "Минимальная версия для входа актуального клиент мода на сервер.");
-	g_hClientVersionMinMessage = CreateConVar("clientmod_client_version_min_message", "Your version of ClientMod is too old to play on this server", "Текст для кика если клиент ниже минимальной версии.");
+	g_hClientVersionMin = CreateConVar("clientmod_client_version_min", "3.0.0.8220", "Минимальная версия для входа актуального ClientMod клиента на сервер.");
+	g_hClientVersionMinMessage = CreateConVar("clientmod_client_version_min_message", "Your version of ClientMod is too old to play on this server", "Текст для кика, если клиент ниже минимальной версии.");
 	
 	g_hLogging = CreateConVar("clientmod_logging", "1", "Логинование клиентов.", 0, true, 0.0, true, 1.0);
 	
@@ -100,6 +109,7 @@ public void OnPluginStart()
 	g_hTeamT.AddChangeHook(TeamCvarHook);
 	g_hTeamCT.AddChangeHook(TeamCvarHook);
 	g_hClientVersionMin.AddChangeHook(ClientVersionHook);
+	g_hShootPosFix.AddChangeHook(ShootPosFixHook);
 	SmokeCvarHook(null, "", "");
 	ClientVersionHook(null, "", "");
 	
@@ -247,6 +257,13 @@ public void OnClientPutInServer(int client)
 		{
 			CM_SendValidation(client);
 		}
+		
+		if (g_hShootPosFix.BoolValue)
+		{
+			SDKHookEx(client, SDKHook_PreThinkPost, OnClientPreThinkPost);
+			SDKHookEx(client, SDKHook_PostThink, OnClientPostThink);
+			SDKHookEx(client, SDKHook_PostThinkPost, OnClientPostThinkPost);
+		}
 	}
 }
 
@@ -326,6 +343,10 @@ void Call_OnClientAuth(int client, CMAuthType type)
 	}
 }
 
+
+/***********
+ * Natives *
+ ***********/
 public int Native_GetClientModAuth(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1);
@@ -335,7 +356,6 @@ public int Native_GetClientModAuth(Handle plugin, int numParams)
 	}
 	return view_as<int>(g_eCMAuth[client]);
 }
-
 public int Native_GetClientModVersion(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1);
@@ -345,21 +365,30 @@ public int Native_GetClientModVersion(Handle plugin, int numParams)
 	}
 	return SetNativeString(2, _client_version[client], GetNativeCell(3)) == SP_ERROR_NONE;
 }
-
 public int Native_AddTag(Handle plugin, int numParams)
 {
 	char buffer[MAX_TAG_STRING_LENGTH];
 	FormatNativeString(0, 1, 2, sizeof(buffer), _, buffer);
 	return AddTag(buffer);
 }
-
 public int Native_RemoveTag(Handle plugin, int numParams)
 {
 	char buffer[MAX_TAG_STRING_LENGTH];
 	FormatNativeString(0, 1, 2, sizeof(buffer), _, buffer);
 	return RemoveTag(buffer);
 }
+public int Native_EndUserMessage(Handle plugin, int numParams)
+{
+	CM_PatchUserMessages();
+	EndMessage();
+	CM_UnpatchUserMessages();
+	return 1;
+}
 
+
+/********
+ * Tags *
+ ********/
 bool AddTag(char[] pszTag)
 {
 	if (strlen(pszTag) < 1)
@@ -381,8 +410,6 @@ bool AddTag(char[] pszTag)
 	CM_WriteTag();
 	return true;
 }
-
-
 bool RemoveTag(char[] pszTag)
 {
 	if (strlen(pszTag) < 1)
@@ -402,7 +429,6 @@ bool RemoveTag(char[] pszTag)
 	}
 	return false;
 }
-
 void CM_WriteTag()
 {
 	char szTagString[MAX_TAG_STRING_LENGTH];
@@ -421,7 +447,6 @@ void CM_WriteTag()
 	}
 	g_hCMTags.SetString(szTagString);
 }
-
 void CM_TagsInit()
 {
 	g_hCMTags.AddChangeHook(TagsCvarHook);
@@ -452,7 +477,6 @@ void CM_TagsInit()
 	}
 	*/
 }
-
 public void TagsCvarHook(ConVar convar, const char[] oldValue, const char[] newValue)
 {
 	bool bValid = false;
@@ -471,13 +495,15 @@ public void TagsCvarHook(ConVar convar, const char[] oldValue, const char[] newV
 }
 
 
+/*************
+ * Auto Bhop *
+ *************/
 void CM_AutoBhopInit()
 {
 	g_hMaxSpeed = FindConVar("sv_maxspeed");
 	g_hAutoBhop.AddChangeHook(AutoBhopHook);
 	g_hDisableBhop.AddChangeHook(AutoBhopHook);
 }
-
 public void AutoBhopHook(ConVar convar, const char[] oldValue, const char[] newValue)
 {
 	for (int i = 1; i <= MaxClients; i++)
@@ -495,7 +521,6 @@ public void AutoBhopHook(ConVar convar, const char[] oldValue, const char[] newV
 		}
 	}
 }
-
 public void OnClientPreThink(int client)
 {
 	PreventBunnyJumping(client);
@@ -515,7 +540,6 @@ public void OnClientPreThink(int client)
 		}
 	}
 }
-
 void PreventBunnyJumping(int client)
 {
 	if (!g_hDisableBhop.BoolValue || IsFakeClient(client) || !IsPlayerAlive(client) || !(GetEntityFlags(client) & FL_ONGROUND) || !(GetClientButtons(client) & IN_JUMP) ||
@@ -546,7 +570,6 @@ void PreventBunnyJumping(int client)
 	
 	SetEntPropVector(client, Prop_Data, "m_vecAbsVelocity", m_vecAbsVelocity);
 }
-
 public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3])
 {
 	if (g_hDuckFix.BoolValue && IsPlayerAlive(client) && !IsFakeClient(client) && (GetEntityFlags(client) & FL_ONGROUND))
@@ -562,13 +585,46 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 			return Plugin_Changed;
 		}
 	}
+	g_bDoShootPosFix[client] = false;
+	
+	
+	/**********************
+	 * Shoot position debug *
+	 **********************/
+#if defined SHOOT_POSITION_FIX_DEBUG
+	int m_nOldButtons = GetEntProp(client, Prop_Data, "m_nOldButtons");
+	if ((buttons & IN_ATTACK) && !(m_nOldButtons & IN_ATTACK))
+	{
+		float eye_pos[3]; GetClientEyePosition(client, eye_pos);
+		float fwd[3], right[3], up[3]; GetAngleVectors(angles, fwd, right, up);
+		
+		float end_pos[3]; end_pos[0] = fwd[0]; end_pos[1] = fwd[1]; end_pos[2] = fwd[2];
+		ScaleVector(end_pos, 4096.0); AddVectors(eye_pos, end_pos, end_pos);
+		
+		TR_TraceRayFilter(eye_pos, end_pos, MASK_SHOT, RayType_EndPoint, CM_FilterLocalPlayer, client);
+		TR_GetEndPosition(end_pos);
+		
+		static int beamIndex = 0;
+		if (beamIndex == 0)
+		{
+			beamIndex = PrecacheModel("materials/vgui/white.vmt");
+		}
+		
+		TE_SetupBeamPoints(eye_pos, end_pos, beamIndex, 0, 0, 0, 10.0, 0.1, 0.5, 0, 0.0, {0, 0, 255, 255}, 0);
+		TE_SendToAll();
+	}
+#endif
+	
 	return Plugin_Continue;
 }
 
+
+/*************
+ * Smoke fix *
+ *************/
 Address aSmokeFixAddr = Address_Null;
 float fSmokeFixValue =  108.5;
 bool bSmokeFixed = false;
-
 Address FindSmokeFix(Address pStart)
 {
 	int pattern[] = { 0x0F, 0x2F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F, 0x97 };
@@ -606,7 +662,6 @@ Address FindSmokeFix(Address pStart)
 	}
 	return Address_Null;
 }
-
 void CM_SmokeFixEnable(bool bInit = false)
 {
 	if (bInit)
@@ -661,7 +716,6 @@ void CM_SmokeFixEnable(bool bInit = false)
 		bSmokeFixed = true;
 	}
 }
-
 void CM_SmokeFixDisable()
 {
 	if (bSmokeFixed)
@@ -670,7 +724,6 @@ void CM_SmokeFixDisable()
 		bSmokeFixed = false;
 	}
 }
-
 public void SmokeFixHook(ConVar convar, const char[] oldValue, const char[] newValue)
 {
 	if (g_hSmokeFix.BoolValue)
@@ -682,7 +735,6 @@ public void SmokeFixHook(ConVar convar, const char[] oldValue, const char[] newV
 		CM_SmokeFixDisable();
 	}
 }
-
 public void OnEntityCreated(int entity, const char[] classname) 
 { 
 	if (bSmokeFixed && entity > MaxClients && classname[0] == 's' && strcmp(classname, "smokegrenade_projectile") == 0)
@@ -690,7 +742,6 @@ public void OnEntityCreated(int entity, const char[] classname)
 		SDKHook(entity, SDKHook_ThinkPost, SmokeFix_OnThinkPost);
 	}
 }
-
 public void SmokeFix_OnThinkPost(int entity)
 {
 	int rgba[4];
@@ -707,6 +758,10 @@ public void SmokeFix_OnThinkPost(int entity)
 	}
 }
 
+
+/*********
+ * Utils *
+ *********/
 stock bool CM_IsValidVersion(const char[] version1, const char[] version2)
 {
 	char client_version_char[6][8];
@@ -729,7 +784,6 @@ stock bool CM_IsValidVersion(const char[] version1, const char[] version2)
 	}
 	return CM_VersionCheck(client_version, target_version, min_numbers);
 }
-
 stock bool CM_VersionCheck(int[] version, int[] version_target, int size)
 {
 	int count = size - 1;
@@ -742,7 +796,6 @@ stock bool CM_VersionCheck(int[] version, int[] version_target, int size)
 	}
 	return (version[count] >= version_target[count]);
 }
-
 stock void CM_SendValidation(int client)
 {
 	Event newEvent = CreateEvent("player_info", true);
@@ -752,11 +805,12 @@ stock void CM_SendValidation(int client)
 }
 
 
+/************************
+ * Custom user messages *
+ ************************/
 Address aMessageFixAddr = Address_Null;
 int iMessageFixOriginal = 0;
 int iMessageFixPatch = 0;
-#define CMPatchUserMessages StoreToAddress(aMessageFixAddr, iMessageFixPatch, NumberType_Int32)
-#define CMUnpatchUserMessages StoreToAddress(aMessageFixAddr, iMessageFixOriginal, NumberType_Int32)
 stock void CM_InitUserMassages()
 {
 	Handle hConfig = LoadGameConfigFile("clientmod");
@@ -803,13 +857,81 @@ stock void CM_InitUserMassages()
 		StoreToAddress(aMessageFixAddr + view_as<Address>(3),	0x0,	NumberType_Int8);
 		iMessageFixPatch = LoadFromAddress(aMessageFixAddr, NumberType_Int32);
 	}
-	CMUnpatchUserMessages;
+	CM_UnpatchUserMessages();
+}
+stock void CM_PatchUserMessages()
+{
+	StoreToAddress(aMessageFixAddr, iMessageFixPatch, NumberType_Int32);
+}
+stock void CM_UnpatchUserMessages()
+{
+	StoreToAddress(aMessageFixAddr, iMessageFixOriginal, NumberType_Int32);
 }
 
-public int Native_EndUserMessage(Handle plugin, int numParams)
+
+/**********************
+ * Shoot position fix *
+ **********************/
+public void ShootPosFixHook(ConVar convar, const char[] oldValue, const char[] newValue)
 {
-	CMPatchUserMessages;
-	EndMessage();
-	CMUnpatchUserMessages;
-	return 1;
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (IsClientInGame(i) && !IsFakeClient(i))
+		{
+			if (g_hShootPosFix.BoolValue)
+			{
+				SDKHook(i, SDKHook_PreThinkPost, OnClientPreThinkPost);
+				SDKHook(i, SDKHook_PostThink, OnClientPostThink);
+				SDKHook(i, SDKHook_PostThinkPost, OnClientPostThinkPost);
+			}
+			else
+			{
+				SDKUnhook(i, SDKHook_PreThinkPost, OnClientPreThinkPost);
+				SDKUnhook(i, SDKHook_PostThink, OnClientPostThink);
+				SDKUnhook(i, SDKHook_PostThinkPost, OnClientPostThinkPost);
+			}
+		}
+	}
+}
+public void OnClientPreThinkPost(int client)
+{
+	if (g_hShootPosFix.BoolValue && IsPlayerAlive(client))
+	{
+		g_bDoShootPosFix[client] = true;
+		GetEntPropVector(client, Prop_Data, "m_vecAbsOrigin", g_fShootPosPre[client]);
+	}
+}
+public void OnClientPostThink(int client)
+{
+	if (g_bDoShootPosFix[client])
+	{
+		GetEntPropVector(client, Prop_Data, "m_vecAbsOrigin", g_fShootPosPost[client]);
+		if (!IsValidPosFix(client, true))
+		{
+			g_bDoShootPosFix[client] = false;
+			return;
+		}
+		SetEntPropVector(client, Prop_Data, "m_vecAbsOrigin", g_fShootPosPre[client]);
+	}
+}
+public void OnClientPostThinkPost(int client)
+{
+	if (g_bDoShootPosFix[client])
+	{
+		g_bDoShootPosFix[client] = false;
+		if (!IsValidPosFix(client, false))
+		{
+			return;
+		}
+		SetEntPropVector(client, Prop_Data, "m_vecAbsOrigin", g_fShootPosPost[client]);
+	}
+}
+bool IsValidPosFix(int client, bool bFirst)
+{
+	if (bFirst)
+	{
+		return !(g_fShootPosPre[client][0] == g_fShootPosPost[client][0] && g_fShootPosPre[client][1] == g_fShootPosPost[client][1] && g_fShootPosPre[client][2] == g_fShootPosPost[client][2]);
+	}
+	GetEntPropVector(client, Prop_Data, "m_vecAbsOrigin", g_fShootPosTemp[client]);
+	return !(g_fShootPosPre[client][0] != g_fShootPosTemp[client][0] || g_fShootPosPre[client][1] != g_fShootPosTemp[client][1] || g_fShootPosPre[client][2] != g_fShootPosTemp[client][2]);
 }
