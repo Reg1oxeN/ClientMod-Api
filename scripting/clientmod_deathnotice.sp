@@ -169,6 +169,7 @@ public void OnClientDisconnect(int client)
 	for (int i = 0; i < sizeof(g_iPlayerDamage); i++)
 	{
 		g_iPlayerDamage[client][i] = 0;
+		g_iPlayerDamage[i][client] = 0;
 	}
 }
 
