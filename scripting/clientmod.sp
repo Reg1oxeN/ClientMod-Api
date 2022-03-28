@@ -83,6 +83,8 @@ public void OnPluginStart()
 	
 	CreateConVar("se_allowpure", /*не трогать*/"0"/*do not touch*/, "Разрешить обработку sv_pure клиентом.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	
+	CreateConVar("se_voice_opus", /*не трогать*/"0"/*do not touch*/, "Активировать на клиенте Opus войс кодек.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
+	
 	g_hCMSmoke = CreateConVar("se_newsmoke", /*не трогать*/"0"/*do not touch*/, "Контролируется только командами clientmod_smoke_type и clientmod_smoke_mode", FCVAR_REPLICATED);
 	g_hSmokeType = CreateConVar("clientmod_smoke_type", "0", "0 - отключить новый смок. 1 - стандартный из стим версии. 2 - более плотный.", 0, true, 0.0, true, 2.0);
 	g_hSmokeMode = CreateConVar("clientmod_smoke_mode", "1", "0 - отключить. 1 - убрать пыль, которая мешает смоку и делает его прозрачным. 2 - уменьшить время на пару секунд как в стим версии. 3 - оба режима.", 0, true, 0.0, true, 3.0);

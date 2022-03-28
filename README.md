@@ -26,6 +26,7 @@
 | **se_disablebunnyhopping** | ``Reduce bunny hopping speed and support ClientMod client-side prediction.``<br/>**0** - disable<br/>**1** - enable |
 | **se_disablebunnyhopping_scale** | ``Maximum bunny hopping speed scale if se_disablebunnyhopping enabled.``<br/>**1.0-2.0** - MaxPlayerSpeed * scale = max bhop speed |
 | **se_allowpure** | ``Allow sv_pure support for ClientMod.``<br/>**0** - disable<br/>**1** - enable |
+| **se_voice_opus** | ``Activate the opus voice codec on the client.``<br/>**0** - disable<br/>**1** - enable |
 | **se_duckfix** | ``Fixes unduck abuse.``<br/>**0** - disable<br/>**1** - enable<br/>[You can watch a video with an example of abuse here.](https://youtu.be/VFKVUzjzI7Y) |
 | **se_shootpositionfix** | ``Hit Registration Fix (bullet displacement by 1 tick).``<br/>**0** - disable<br/>**1** - enable<br/>[You can read more about this here.](https://github.com/ValveSoftware/source-sdk-2013/pull/442)<br/>[Or watch a video of how it works in ClientMod.](https://youtu.be/mwBOGDJ3u34) |
 | **se_newsmoke** | ``Smoke grenade control for ClientMod.``<br/>This ConVar is controlled only by **clientmod_smoke_type** and **clientmod_smoke_mode** |
