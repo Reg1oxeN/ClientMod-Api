@@ -4,7 +4,7 @@
 #define _clientmod_included
 #include <clientmod\teams>
 
-#define CM_VERSION	"1.6.2"
+#define CM_VERSION	"1.6.3"
 #define CM_URL		"https://vk.com/clientmod"
 #define CM_AUTHOR	"Reg1oxeN"
 #define MAX_TAG_STRING_LENGTH 128
@@ -55,8 +55,12 @@ public SharedPlugin __pl_clientmod =
 };
 
 #if !defined REQUIRE_PLUGIN
-public __pl_clientmod_SetNTVOptional()
+public void __pl_clientmod_SetNTVOptional()
 {
-	
+	MarkNativeAsOptional("CM_AddTag");
+	MarkNativeAsOptional("CM_RemoveTag");
+	MarkNativeAsOptional("CM_GetClientModVersion");
+	MarkNativeAsOptional("CM_GetClientModAuth");
+	MarkNativeAsOptional("CM_EndUserMessage");
 }
 #endif

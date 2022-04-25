@@ -235,7 +235,7 @@ public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast
 	
 	if (g_hNoscope.BoolValue)
 	{
-		event.SetBool("noscope", IsPlayerNoNcope(attacker, event));
+		event.SetBool("noscope", IsPlayerNoScope(attacker, event));
 	}
 	
 	g_iPlayerKills[attacker]++;
@@ -481,10 +481,15 @@ int GetPlayerDefaultFov(int client)
 	return m_iDefaultFOV == 0 ? 90 : m_iDefaultFOV;
 }
 
-bool IsPlayerNoNcope(int client, Event event)
+bool IsPlayerNoScope(int client, Event event)
 {
+	if (!g_bPlayerNoScope[client])
+	{
+		return false;
+	}
+
 	char weapon[32]; event.GetString("weapon", weapon, sizeof(weapon));
-	return (strcmp(weapon, "awp") == 0 || strcmp(weapon, "scout") == 0 || strcmp(weapon, "g3sg1") == 0 || strcmp(weapon, "sg550") == 0) && g_bPlayerNoScope[client];
+	return (strcmp(weapon, "awp") == 0 || strcmp(weapon, "scout") == 0 || strcmp(weapon, "g3sg1") == 0 || strcmp(weapon, "sg550") == 0);
 }
 
 void ClientModEventsPatch() // автоматическое добавление возможности отправки ассиста со стороны сервера
