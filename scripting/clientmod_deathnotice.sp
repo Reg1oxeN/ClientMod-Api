@@ -593,7 +593,24 @@ void ClientModEventsPatch() // автоматическое добавление
 				}
 				
 				hModEvents.Rewind(); 
+				{
+					char BackupFileName[PLATFORM_MAX_PATH];
+					Format(BackupFileName, sizeof(BackupFileName), "%s_BACKUP", FinalEventFilePath);
+					DeleteFile(BackupFileName, true);
+					if (FileExists(BackupFileName, true))
+					{
+						SetFailState("Failed delete file '%s'", BackupFileName);
+					}
+					if (!RenameFile(BackupFileName, FinalEventFilePath, true))
+					{
+						SetFailState("Failed rename file '%s'", FinalEventFilePath);
+					}
+				}
 				bPatched = hModEvents.ExportToFile(FinalEventFilePath);
+				if (!bPatched)
+				{
+					SetFailState("Failed patch file '%s' (exists: %d)", FinalEventFilePath, FileExists(FinalEventFilePath, true));
+				}
 			}
 			if (bPatched)
 			{

@@ -846,17 +846,16 @@ stock void CM_InitUserMassages()
 	}
 	else
 	{
-		aMessageFixAddr += view_as<Address>(iMessageOffset);
+		aMessageFixAddr = CM_FindPatchUserMassages(aMessageFixAddr);
+		if (aMessageFixAddr == Address_Null)
+		{
+			SetFailState("Could not find UserMassages patch addr");
+		}
 	}
 	
 	iMessageFixOriginal = LoadFromAddress(aMessageFixAddr, NumberType_Int32);
 	
-	if (iMessageOffset != 0)
-	{
-		StoreToAddress(aMessageFixAddr, 0x8B, NumberType_Int8);
-		iMessageFixPatch = LoadFromAddress(aMessageFixAddr, NumberType_Int32);
-	}
-	else
+	if (iMessageOffset == 0)
 	{
 		StoreToAddress(aMessageFixAddr,							0x89,	NumberType_Int8);
 		StoreToAddress(aMessageFixAddr + view_as<Address>(1),	0xD0,	NumberType_Int8);
@@ -864,7 +863,72 @@ stock void CM_InitUserMassages()
 		StoreToAddress(aMessageFixAddr + view_as<Address>(3),	0x0,	NumberType_Int8);
 		iMessageFixPatch = LoadFromAddress(aMessageFixAddr, NumberType_Int32);
 	}
+	else
+	{
+		bool bOriginal = LoadFromAddress(aMessageFixAddr, NumberType_Int8) == 0xEF;
+		StoreToAddress(aMessageFixAddr, bOriginal ? 0x8B : 0x83, NumberType_Int8);
+		iMessageFixPatch = LoadFromAddress(aMessageFixAddr, NumberType_Int32);
+	}
+	
 	CM_UnpatchUserMessages();
+}
+Address CM_FindPatchUserMassages(Address pStart)
+{
+	int pattern_original[] = 	{ 0xF, 0x84, 0xEF, 0x00, 0x00, 0x00, 0x3D };
+	int pattern_amd[] = 		{ 0xF, 0x84, 0xCB, 0x00, 0x00, 0x00, 0x3D };
+	
+	for (int i = 0; i < 600; i++)
+	{
+		if (LoadFromAddress(pStart, NumberType_Int8) == pattern_original[0])
+		{
+			bool bFound = true;
+			for (int j = 1; j < sizeof(pattern_original); j++)
+			{
+				int iDestByte = LoadFromAddress(pStart + view_as<Address>(j), NumberType_Int8);
+				int iSrcByte = pattern_original[j];
+				
+				if (iSrcByte != 0xFF)
+				{
+					if (iDestByte != iSrcByte)
+					{
+						bFound = false;
+						break;
+					}
+				}
+			}
+			if (bFound)
+			{
+				Address pRet = pStart + view_as<Address>(2);
+				return pRet;
+			}
+		}
+		if (LoadFromAddress(pStart, NumberType_Int8) == pattern_amd[0])
+		{
+			bool bFound = true;
+			for (int j = 1; j < sizeof(pattern_amd); j++)
+			{
+				int iDestByte = LoadFromAddress(pStart + view_as<Address>(j), NumberType_Int8);
+				int iSrcByte = pattern_amd[j];
+				
+				if (iSrcByte != 0xFF)
+				{
+					if (iDestByte != iSrcByte)
+					{
+						bFound = false;
+						break;
+					}
+				}
+			}
+			if (bFound)
+			{
+				Address pRet = pStart + view_as<Address>(2);
+				return pRet;
+			}
+		}
+		
+		pStart++;
+	}
+	return Address_Null;
 }
 stock void CM_PatchUserMessages()
 {
