@@ -26,6 +26,17 @@
 					"signature" "Message_CheckMessageLength_Sig"
 				}
 			}
+			"CBasePlayer_AdjustPlayerTimeBase"
+			{
+				"windows"
+				{
+					"signature" "CBasePlayer_AdjustPlayerTimeBase_Sig"
+				}
+				"linux"
+				{
+					"signature" "CBasePlayer_AdjustPlayerTimeBase_Sig"
+				}
+			}
 		}
 		"Offsets"
 		{
@@ -44,6 +55,11 @@
 				"windows"		"0"
 				"linux"			"45"
 			}
+			"CBasePlayer_AdjustPlayerTimeBaseOffset"
+			{
+				"windows"		"65"
+				"linux"			"64"
+			}
 		}
 		
 		"Signatures"
@@ -59,6 +75,12 @@
 				"library"		"engine"
 				"windows"		"\xE8\x2A\x2A\x2A\x2A\x85\xC0\x7C\x36"
 				"linux"			"@_ZN14CVEngineServer10MessageEndEv"
+			}
+			"CBasePlayer_AdjustPlayerTimeBase_Sig"
+			{
+				"library"		"server"
+				"windows"		"\x53\x8B\x5C\x24\x08\x85\xDB\x57\x8B\xF9\x0F"
+				"linux"			"@_ZN11CBasePlayer20AdjustPlayerTimeBaseEi"
 			}
 		}
 	}

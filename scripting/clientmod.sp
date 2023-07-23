@@ -59,6 +59,7 @@ ConVar g_hClientVersionMin = null;
 ConVar g_hClientVersionMinMessage = null;
 ConVar g_hLogging = null;
 ConVar g_hShootPosFix = null;
+ConVar g_hClockCorrectionFix = null;
 ConVar sv_turbophysics = null;
 
 float g_fTimeLastUnducked[MAXPLAYERS] = {0.0, ...};
@@ -81,6 +82,7 @@ public void OnPluginStart()
 	
 	g_hDuckFix = CreateConVar("se_duckfix", /*не трогать*/"0"/*do not touch*/, "Исправление быстрого приседания.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	g_hShootPosFix = CreateConVar("se_shootpositionfix", /*не трогать*/"0"/*do not touch*/, "https://forums.alliedmods.net/showthread.php?t=315405", FCVAR_REPLICATED, true, 0.0, true, 2.0);
+	g_hClockCorrectionFix = CreateConVar("se_clockcorrection_ticks", /*не трогать*/"-1"/*do not touch*/, "На сколько тиков отстает моделька игрока перед отображением. -1 - исправление отключено, стандартные 60мс. 0-1 - не проверялось. 2 - оптимально.", FCVAR_REPLICATED, true, -1.0, true, 2.0);
 	
 	CreateConVar("se_allowpure", /*не трогать*/"0"/*do not touch*/, "Разрешить обработку sv_pure клиентом.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	
@@ -92,8 +94,11 @@ public void OnPluginStart()
 	
 	g_hSmokeFix = CreateConVar("clientmod_smoke_fix", "0", "0 - отключить. 1 - включить исправление подсветки игроков на радаре, если один из игроков находится в смоку.", 0, true, 0.0, true, 1.0);
 	
-	g_hTeamT = CreateConVar("clientmod_team_t", "", "Имя команды Т в таблице счета.");
-	g_hTeamCT = CreateConVar("clientmod_team_ct", "", "Имя команды КТ в таблице счета.");
+	g_hTeamT = CreateConVar("clientmod_team_t", "", "Имя команды Т в таблице счета, в логах и при изменении команды.");
+	g_hTeamCT = CreateConVar("clientmod_team_ct", "", "Имя команды КТ в таблице счета, в логах и при изменении команды.");
+	
+	CreateConVar("se_scoreboard_teamname_t", /*не трогать*/""/*do not touch*/, "Имя команды Т только в таблице счета.", FCVAR_REPLICATED);
+	CreateConVar("se_scoreboard_teamname_ct", /*не трогать*/""/*do not touch*/, "Имя команды КТ только в таблице счета.", FCVAR_REPLICATED);
 	
 	RegServerCmd("clientmod_tags", Command_Tags);
 	
@@ -115,6 +120,7 @@ public void OnPluginStart()
 	g_hTeamCT.AddChangeHook(TeamCvarHook);
 	g_hClientVersionMin.AddChangeHook(ClientVersionHook);
 	g_hShootPosFix.AddChangeHook(ShootPosFixHook);
+	g_hClockCorrectionFix.AddChangeHook(ClockCorrectionFixHook);
 	sv_turbophysics.AddChangeHook(ShootPosFixHook);
 	SmokeCvarHook(null, "", "");
 	ClientVersionHook(null, "", "");
@@ -136,11 +142,14 @@ public void OnPluginStart()
 	CM_SmokeFixEnable(true);
 	SmokeFixHook(null, "", "");
 	CM_InitUserMassages();
+	CM_ClockCorrectionFixEnable(true);
+	ClockCorrectionFixHook(null, "", "");
 }
 
 public void OnPluginEnd()
 {
 	CM_SmokeFixDisable();
+	CM_ClockCorrectionFixDisable();
 }
 
 public void OnMapStart()
@@ -763,6 +772,73 @@ public void SmokeFix_OnThinkPost(int entity)
 			SetEntProp(entity, Prop_Data, "m_nNextThinkTick", next_think + fix_think);
 		}
 	}
+}
+
+
+/***********************
+ * Clock correction fix*
+ ***********************/
+Address aClockCorrectionFixAddr = Address_Null;
+float fClockCorrectionOriginalValue = 0.06;
+float fClockCorrectionValue;
+void CM_ClockCorrectionFixEnable(bool bInit = false)
+{
+	if (bInit)
+	{
+		Handle hConfig = LoadGameConfigFile("clientmod");
+		if (hConfig == INVALID_HANDLE)
+		{
+			SetFailState("Load clientmod gamedata Config Fail");
+		}
+		
+		aClockCorrectionFixAddr = GameConfGetAddress(hConfig, "CBasePlayer_AdjustPlayerTimeBase");
+		int iValueOffset = GameConfGetOffset(hConfig, "CBasePlayer_AdjustPlayerTimeBaseOffset");
+		
+		CloseHandle(hConfig);
+		
+		if (aClockCorrectionFixAddr == Address_Null || iValueOffset == -1)
+		{
+			SetFailState("Invalid clock correction patch address");
+			return;
+		}
+		
+		aClockCorrectionFixAddr += view_as<Address>(iValueOffset);
+		aClockCorrectionFixAddr = view_as<Address>(LoadFromAddress(aClockCorrectionFixAddr, NumberType_Int32));
+		fClockCorrectionValue = view_as<float>(LoadFromAddress(aClockCorrectionFixAddr, NumberType_Int32));
+		if (fClockCorrectionValue != fClockCorrectionOriginalValue)
+		{
+			SetFailState("Invalid clock correction patch value %f", fClockCorrectionValue);
+		}
+		return;
+	}
+	
+	float fix_value = GetClockCorrectionFixValue();
+	if (fix_value != fClockCorrectionValue)
+	{
+		fClockCorrectionValue = fix_value;
+		StoreToAddress(aClockCorrectionFixAddr, view_as<int>(fClockCorrectionValue), NumberType_Int32);
+	}
+}
+public void ClockCorrectionFixHook(ConVar convar, const char[] oldValue, const char[] newValue)
+{
+	CM_ClockCorrectionFixEnable();
+}
+void CM_ClockCorrectionFixDisable()
+{
+	if (fClockCorrectionValue != fClockCorrectionOriginalValue)
+	{
+		StoreToAddress(aClockCorrectionFixAddr, view_as<int>(fClockCorrectionOriginalValue), NumberType_Int32);
+	}
+}
+float GetClockCorrectionFixValue()
+{
+	switch (g_hClockCorrectionFix.IntValue)
+	{
+		case 0:	return 0.0;
+		case 1:	return GetTickInterval();
+		case 2:	return GetTickInterval() * 2.0;
+	}
+	return fClockCorrectionOriginalValue;
 }
 
 
