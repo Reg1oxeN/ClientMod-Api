@@ -554,7 +554,9 @@ void ClientModEventsPatch() // автоматическое добавление
 	{
 		char cTrash[8];
 		KeyValues hModEvents = new KeyValues("cstrikeevents");
-		if (hModEvents.ImportFromFile(FinalEventFilePath) && hModEvents.JumpToKey("player_death"))
+		bool bImportResult = hModEvents.ImportFromFile(FinalEventFilePath);
+		
+		if (bImportResult && hModEvents.JumpToKey("player_death"))
 		{
 			bool bAlreadyPatched = true;
 			for (int i = 0; i < sizeof(newdatakey); i++)
@@ -623,7 +625,15 @@ void ClientModEventsPatch() // автоматическое добавление
 			
 			bSuccessfull = bAlreadyPatched || bPatched;
 		}
+		else
+		{
+			SetFailState("failed patch[%i] or jump", bImportResult);
+		}
 		delete hModEvents;
+	}
+	else
+	{
+		SetFailState("modevents.res not found?");
 	}
 	
 	if (!bSuccessfull)

@@ -2,7 +2,7 @@
   #endinput
 #endif
 #define _clientmod_included
-#include <clientmod\teams>
+#include <clientmod/teams>
 
 #define CM_VERSION	"1.6.5"
 #define CM_URL		"https://vk.com/clientmod"
@@ -42,7 +42,7 @@ stock bool CM_IsClientModUser(int client, bool allow_outdated = false)
 	return allow_outdated ? CM_GetClientModAuth(client) >= CM_Auth_ClientMod : CM_GetClientModAuth(client) == CM_Auth_ClientMod;
 }
 
-#include <clientmod\usermessage>
+#include <clientmod/usermessage>
 public SharedPlugin __pl_clientmod = 
 {
 	name = "clientmod",

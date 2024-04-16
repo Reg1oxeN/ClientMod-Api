@@ -6,7 +6,8 @@
 #include <sdktools>
 #include <sdkhooks>
 #include <clientmod>
-#include <clientmod\tracerayfilter>
+#include <clientmod/tracerayfilter>
+#include <clientmod/multicolors>
 
 //#define SHOOT_POSITION_FIX_DEBUG
 

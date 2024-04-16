@@ -398,4 +398,6 @@ public Action C_Event_MapStart(Handle event, const char[] name, bool dontBroadca
 	
 	for (int i = 1; i <= MaxClients; i++)
 		CSkipList[i] = false;
+		
+	return Plugin_Continue;
 }

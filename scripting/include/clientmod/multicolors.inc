@@ -201,7 +201,7 @@ stock void CReplyToCommand(int author, const char[] message, any ...)
  * @param author		Client to use for {teamcolor}
  * @param message		Message (formatting rules)
  */
- stock void CReplyToCommandEx(int client, int author, const char[] message, any ...)
+ /*stock void CReplyToCommandEx(int client, int author, const char[] message, any ...)
 {
 	char buffer[MAX_BUFFER_LENGTH];
 
@@ -209,7 +209,7 @@ stock void CReplyToCommand(int author, const char[] message, any ...)
 
 	C_ReplyToCommandEx(client, author, "%s%s", g_sPrefix, buffer);
 	MC_ReplyToCommandEx(client, author, "%s%s", g_sPrefix, buffer);
-}
+}*/
 
 /**
  * Remove all tags and print to server
@@ -248,14 +248,14 @@ stock void CReplyToCommand(int author, const char[] message, any ...)
  * 
  * @error
  */
-stock void CShowActivity(int author, const char[] message, any ...)
+/*stock void CShowActivity(int author, const char[] message, any ...)
 {
 	char buffer[MAX_BUFFER_LENGTH];
 	VFormat(buffer, sizeof(buffer), message, 3);
 
 	C_ShowActivity(author, "%s", buffer);
 	MC_ShowActivity(author, "%s", buffer);
-}
+}*/
 
 
 /**
@@ -269,14 +269,14 @@ stock void CShowActivity(int author, const char[] message, any ...)
  * 
  * @error
  */
-stock void CShowActivityEx(int author, const char[] tag, const char[] message, any ...)
+/*stock void CShowActivityEx(int author, const char[] tag, const char[] message, any ...)
 {
 	char buffer[MAX_BUFFER_LENGTH];
 	VFormat(buffer, sizeof(buffer), message, 4);
 
 	C_ShowActivityEx(author, tag, "%s", buffer);
 	MC_ShowActivityEx(author, tag, "%s", buffer);
-}
+}*/
 
 
 
@@ -293,14 +293,14 @@ stock void CShowActivityEx(int author, const char[] tag, const char[] message, a
  * 
  * @error
  */
- stock void CShowActivity2(int author, const char[] tag, const char[] message, any ...)
+ /*stock void CShowActivity2(int author, const char[] tag, const char[] message, any ...)
 {
 	char buffer[MAX_BUFFER_LENGTH];
 	VFormat(buffer, sizeof(buffer), message, 4);
 	
 	C_ShowActivity2(author, tag, "%s", buffer);
 	MC_ShowActivity2(author, tag, "%s", buffer);
-}
+}*/
 
 
 
