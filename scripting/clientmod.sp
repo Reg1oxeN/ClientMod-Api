@@ -104,7 +104,7 @@ public void OnPluginStart()
 	CreateConVar("se_scoreboard_teamname_t", /*не трогать*/""/*do not touch*/, "Имя команды Т только в таблице счета.", FCVAR_REPLICATED);
 	CreateConVar("se_scoreboard_teamname_ct", /*не трогать*/""/*do not touch*/, "Имя команды КТ только в таблице счета.", FCVAR_REPLICATED);
 	
-	CreateConVar("se_allow_hitmarker", /*не трогать*/"1"/*do not touch*/, "Разрешить хитмаркер через клиентский script engine.", FCVAR_REPLICATED);
+	CreateConVar("se_allow_hitmarker", /*не трогать*/"1"/*do not touch*/, "Разрешить хитмаркер через клиентские плагины.", FCVAR_REPLICATED);
 	
 	RegServerCmd("clientmod_tags", Command_Tags);
 	
