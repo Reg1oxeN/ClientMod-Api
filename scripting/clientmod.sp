@@ -29,6 +29,8 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	CreateNative("CM_AddTag", Native_AddTag);
 	CreateNative("CM_RemoveTag", Native_RemoveTag);
 	CreateNative("CM_EndUserMessage", Native_EndUserMessage);
+	CreateNative("CM_GetClientConnectMethod", Native_GetClientConnectMethod);
+	
 	g_OnClientAuth = CreateGlobalForward("CM_OnClientAuth", ET_Ignore, Param_Cell, Param_Cell);
 	g_OnClientBhopRequest = CreateGlobalForward("CM_OnClientBhopRequest", ET_Hook, Param_Cell);
 	
@@ -40,6 +42,7 @@ CMAuthType g_eCMAuth[MAXPLAYERS] = {CM_Auth_Unknown, ...};
 bool g_bClientLog[MAXPLAYERS] = {true, ...};
 char _client_version[MAXPLAYERS][16];
 char _client_version_min[16];
+int g_eClientConnectMethod[MAXPLAYERS] = {0, ...};
 
 ArrayList g_aTagList = null;
 ConVar g_hCMTags = null;
@@ -101,12 +104,14 @@ public void OnPluginStart()
 	CreateConVar("se_scoreboard_teamname_t", /*не трогать*/""/*do not touch*/, "Имя команды Т только в таблице счета.", FCVAR_REPLICATED);
 	CreateConVar("se_scoreboard_teamname_ct", /*не трогать*/""/*do not touch*/, "Имя команды КТ только в таблице счета.", FCVAR_REPLICATED);
 	
+	CreateConVar("se_allow_hitmarker", /*не трогать*/"1"/*do not touch*/, "Разрешить хитмаркер через клиентский script engine.", FCVAR_REPLICATED);
+	
 	RegServerCmd("clientmod_tags", Command_Tags);
 	
 	g_hPrivateMode = CreateConVar("clientmod_private", "0", "Фильтрация клиентов. -1 - не пускать только устаревшие версии ClientMod и пускать обычных клиентов. 0 - отключить. 1 - пускать только актуальные версии ClientMod. 2 - пускать только актуальные и устаревшие версии ClientMod.", FCVAR_NOTIFY, true, -1.0, true, 2.0);
 	g_hPrivateMessage = CreateConVar("clientmod_private_message", "The server is ClientMod users only. Download it from https://clientmod.ru ", "Текст для кика не ClientMod клиентов, если clientmod_private = 1");
 	
-	g_hClientVersionMin = CreateConVar("clientmod_client_version_min", "3.0.0.8560", "Минимальная версия для входа актуального ClientMod клиента на сервер.");
+	g_hClientVersionMin = CreateConVar("clientmod_client_version_min", "3.0.0.9595", "Минимальная версия для входа актуального ClientMod клиента на сервер.");
 	g_hClientVersionMinMessage = CreateConVar("clientmod_client_version_min_message", "Your version of ClientMod is too old to play on this server", "Текст для кика, если клиент ниже минимальной версии.");
 	
 	g_hLogging = CreateConVar("clientmod_logging", "1", "Логинование клиентов.", 0, true, 0.0, true, 1.0);
@@ -258,6 +263,11 @@ public void OnClientConnected(int client)
 
 	g_eCMAuth[client] = bClientModNew ? CM_Auth_ClientMod : (bClientModUser ? CM_Auth_ClientMod_Outdated : CM_Auth_Original);
 	Call_OnClientAuth(client, g_eCMAuth[client]);
+	
+	
+	char _connect_method[16];
+	bool bHasConnectMethod = GetClientInfo(client, "_connectmethod", _connect_method, sizeof(_connect_method)) && _connect_method[0];
+	g_eClientConnectMethod[client] = bHasConnectMethod ? StringToInt(_connect_method) : 0;
 }
 
 public void OnClientPutInServer(int client)
@@ -288,6 +298,7 @@ public void OnClientDisconnect(int client)
 	g_eCMAuth[client] = CM_Auth_Unknown;
 	g_bClientLog[client] = true;
 	g_fTimeLastUnducked[client] = 0.0;
+	g_eClientConnectMethod[client] = 0;
 }
 
 public void OnClientAuthorized(int client, const char[] auth)
@@ -400,7 +411,15 @@ public int Native_EndUserMessage(Handle plugin, int numParams)
 	CM_UnpatchUserMessages();
 	return 1;
 }
-
+public int Native_GetClientConnectMethod(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (client < 1 || client >= sizeof(g_eClientConnectMethod) || !IsClientConnected(client) || IsFakeClient(client))
+	{
+		return 0;
+	}
+	return g_eClientConnectMethod[client];
+}
 
 /********
  * Tags *
