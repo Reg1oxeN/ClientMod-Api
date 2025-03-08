@@ -5,7 +5,8 @@
 #include <sdkhooks>
 #include <cstrike>
 #include <clientmod>
-#include <clientmod\tracerayfilter>
+#include <clientmod/tracerayfilter>
+#include <clientmod/multicolors>
 
 public Plugin myinfo =
 {
