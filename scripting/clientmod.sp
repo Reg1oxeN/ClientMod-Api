@@ -106,6 +106,8 @@ public void OnPluginStart()
 	
 	CreateConVar("se_allow_hitmarker", /*не трогать*/"1"/*do not touch*/, "Разрешить хитмаркер через клиентские плагины.", FCVAR_REPLICATED);
 	
+	CreateConVar("se_allow_thirdperson", /*не трогать*/"0"/*do not touch*/, "Разрешить клиентам использовать режим от 3-го лица. 0 - отключить. 1 - разрешить клиенту и серверу использовать команду thirdperson. 2 - разрешить серверу использовать команду thirdperson.", FCVAR_REPLICATED);
+	
 	RegServerCmd("clientmod_tags", Command_Tags);
 	
 	g_hPrivateMode = CreateConVar("clientmod_private", "0", "Фильтрация клиентов. -1 - не пускать только устаревшие версии ClientMod и пускать обычных клиентов. 0 - отключить. 1 - пускать только актуальные версии ClientMod. 2 - пускать только актуальные и устаревшие версии ClientMod.", FCVAR_NOTIFY, true, -1.0, true, 2.0);
