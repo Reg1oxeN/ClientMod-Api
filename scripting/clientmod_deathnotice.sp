@@ -13,7 +13,7 @@ public Plugin myinfo =
 	name = "ClientMod Deathnotice",
 	author = CM_AUTHOR,
 	description = "Extended death notice support",
-	version = "1.1",
+	version = "1.2",
 	url = CM_URL
 };
 
@@ -21,10 +21,8 @@ public Plugin myinfo =
 
 int g_iPlayerBlind[MAXPLAYERS];
 float g_flFlashBangTime[MAXPLAYERS];
-float g_flPlayerLastShot[MAXPLAYERS][3];
+int g_iPlayerPenetrationDepth[MAXPLAYERS];
 int g_iPlayerDamage[MAXPLAYERS][MAXPLAYERS];
-int g_iPlayerKills[MAXPLAYERS];
-bool g_bPlayerShotProcess[MAXPLAYERS];
 bool g_bPlayerNoScope[MAXPLAYERS];
 ArrayList g_vSmokeList = null;
 ConVar g_hCMSmoke = null;
@@ -138,15 +136,11 @@ public void Event_Penetrated(Event event, const char[] name, bool dontBroadcast)
 	int client = GetClientOfUserId(event.GetInt("userid"));
 	if(name[0] == 'b')
 	{
-	    g_flPlayerLastShot[client][0] = event.GetFloat("x");
-	    g_flPlayerLastShot[client][1] = event.GetFloat("y");
-	    g_flPlayerLastShot[client][2] = event.GetFloat("z");
+		g_iPlayerPenetrationDepth[client]++;
 	}
 	else
 	{
-		
-		g_flPlayerLastShot[client] = view_as<float>({ 0.0, 0.0, 0.0 });
-		g_bPlayerShotProcess[client] = true;
+		g_iPlayerPenetrationDepth[client] = 0;
 		g_bPlayerNoScope[client] = GetPlayerFov(client) == GetPlayerDefaultFov(client);
 	}
 }
@@ -165,7 +159,6 @@ public void OnClientDisconnect(int client)
 {
 	g_iPlayerBlind[client] = 0;
 	g_flFlashBangTime[client] = 0.0;
-	g_flPlayerLastShot[client] = view_as<float>({ 0.0, 0.0, 0.0 });
 	
 	for (int i = 0; i < sizeof(g_iPlayerDamage); i++)
 	{
@@ -176,9 +169,8 @@ public void OnClientDisconnect(int client)
 
 public void OnClientPostThinkPost(int client)
 {
-	g_iPlayerKills[client] = 0;
 	g_bPlayerNoScope[client] = false;
-	g_bPlayerShotProcess[client] = false;
+	g_iPlayerPenetrationDepth[client] = 0;
 }
 
 public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
@@ -223,52 +215,38 @@ public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast
 		event.SetBool("attackerblind", GetPlayerBlind(attacker, 150) > 0);
 	}
 	
-	int penetrated = GetPlayerPenetrated(attacker, event);
 	if (g_hPenetrated.BoolValue)
 	{
-		event.SetInt("penetrated", penetrated);
+		event.SetInt("penetrated", GetPlayerPenetrated(attacker, event));
 	}
 	
 	if (g_hSmoke.BoolValue)
 	{
-		event.SetBool("smoke", IsSmokeKill(client, attacker, penetrated > 0));
+		event.SetBool("smoke", IsSmokeKill(client, attacker));
 	}
 	
 	if (g_hNoscope.BoolValue)
 	{
 		event.SetBool("noscope", IsPlayerNoScope(attacker, event));
 	}
-	
-	g_iPlayerKills[attacker]++;
 }
 
 int GetPlayerPenetrated(int client, Event event)
 {
-	
-	if (g_flPlayerLastShot[client][0] == 0.0 && g_flPlayerLastShot[client][1] == 0.0 && g_flPlayerLastShot[client][2] == 0.0)
-	{
-		return 0;
-	}
-	if (!g_bPlayerShotProcess[client])
+	if (g_iPlayerPenetrationDepth[client] <= 1)
 	{
 		return 0;
 	}
 	
-	char weapon[32]; event.GetString("weapon", weapon, sizeof(weapon));
-	if (strcmp(weapon, "m3") == 0 || strcmp(weapon, "xm1014") == 0 || strcmp(weapon, "hegrenade") == 0 ||
-		strcmp(weapon, "smokegrenade") == 0 || strcmp(weapon, "flashbang") == 0 || strcmp(weapon, "knife") == 0)
+	char weapon[16]; event.GetString("weapon", weapon, sizeof(weapon));
+	if (strcmp(weapon, "m3") == 0 || strcmp(weapon, "xm1014") == 0 ||
+		strcmp(weapon, "hegrenade") == 0 || strcmp(weapon, "smokegrenade") == 0 || strcmp(weapon, "flashbang") == 0 ||
+		strcmp(weapon, "knife") == 0)
 	{
 		return 0;
 	}
-	if (g_iPlayerKills[client] > 0)
-	{
-		return 1;
-	}
 	
-	float ClientPos[3]; GetClientEyePosition(client, ClientPos);
-	TR_TraceRayFilter(ClientPos, g_flPlayerLastShot[client], MASK_SHOT, RayType_EndPoint, CM_FilterLocalPlayer, client);
-	TR_GetEndPosition(g_flPlayerLastShot[client]);
-	return TR_GetFraction() == 1.0 ? 0 : 1;
+	return g_iPlayerPenetrationDepth[client] - 1;
 }
 
 public void OnSmokeSpawn(int entity)
@@ -388,7 +366,7 @@ bool IsSmokeAlive(int entity)
 	return false;
 }
 
-bool IsSmokeKill(int client, int attacker, bool penetrated)
+bool IsSmokeKill(int client, int attacker)
 {
 	if (!client || !attacker || g_vSmokeList.Length < 1 || !IsClientInGame(client) || !IsClientInGame(attacker))
 	{
@@ -398,10 +376,6 @@ bool IsSmokeKill(int client, int attacker, bool penetrated)
 	float ClientPos[3]; GetClientEyePosition(client, ClientPos);
 	float AttackerPos[3]; GetClientEyePosition(attacker, AttackerPos);
 	float EntityPos[3];
-	if (penetrated)
-	{
-		ClientPos = g_flPlayerLastShot[attacker];
-	}
 	for (int i = 0; i < g_vSmokeList.Length; i++)
 	{
 		int entity = view_as<int>(g_vSmokeList.Get(i));
