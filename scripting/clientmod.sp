@@ -6,6 +6,7 @@
 #include <sdktools>
 #include <sdkhooks>
 #include <clientmod>
+#include <clientmod/stock>
 #include <clientmod/tracerayfilter>
 #include <clientmod/multicolors>
 
@@ -45,6 +46,7 @@ char _client_version_min[16];
 int g_eClientConnectMethod[MAXPLAYERS] = {0, ...};
 
 ArrayList g_aTagList = null;
+StringMap g_aTagCvars = null;
 ConVar g_hCMTags = null;
 ConVar g_hCMSmoke = null;
 ConVar g_hSmokeMode = null;
@@ -63,7 +65,7 @@ ConVar g_hClientVersionMin = null;
 ConVar g_hClientVersionMinMessage = null;
 ConVar g_hLogging = null;
 ConVar g_hShootPosFix = null;
-ConVar g_hClockCorrectionFix = null;
+ConVar g_hClockCorrectionTicks = null;
 ConVar sv_turbophysics = null;
 
 float g_fTimeLastUnducked[MAXPLAYERS] = {0.0, ...};
@@ -72,9 +74,13 @@ float g_fShootPosPre[MAXPLAYERS][3];
 float g_fShootPosPost[MAXPLAYERS][3];
 float g_fShootPosTemp[MAXPLAYERS][3];
 
+SmokeLineBlockedFix g_hSmokeLineBlockedFix;
+ClockCorrectionChanger g_hClockCorrectionChanger;
+
 public void OnPluginStart()
 {
-	g_aTagList = new ArrayList(MAX_TAG_STRING_LENGTH);
+	g_aTagList = new ArrayList(MAX_TAG_ITEM_LENGTH);
+	g_aTagCvars = new StringMap();
 	
 	CreateConVar("clientmod_version", CM_VERSION, "ClientMod API version", FCVAR_NOTIFY|FCVAR_DONTRECORD).AddChangeHook(VersionCvarHook);
 	g_hCMTags = CreateConVar("sv_tags", "", "ClientMod Tags", FCVAR_NOTIFY|FCVAR_DONTRECORD);
@@ -86,7 +92,7 @@ public void OnPluginStart()
 	
 	g_hDuckFix = CreateConVar("se_duckfix", /*не трогать*/"0"/*do not touch*/, "Исправление быстрого приседания.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	g_hShootPosFix = CreateConVar("se_shootpositionfix", /*не трогать*/"0"/*do not touch*/, "https://forums.alliedmods.net/showthread.php?t=315405", FCVAR_REPLICATED, true, 0.0, true, 2.0);
-	g_hClockCorrectionFix = CreateConVar("se_clockcorrection_ticks", /*не трогать*/"-1"/*do not touch*/, "На сколько тиков отстает моделька игрока перед отображением. -1 - исправление отключено, стандартные 60мс. 0-1 - не проверялось. 2 - оптимально.", FCVAR_REPLICATED, true, -1.0, true, 2.0);
+	g_hClockCorrectionTicks = CreateConVar("se_clockcorrection_ticks", /*не трогать*/"-1"/*do not touch*/, "На сколько тиков отстает моделька игрока перед отображением. -1 - исправление отключено, стандартные 60мс. 0-1 - не проверялось. 2 - оптимально.", FCVAR_REPLICATED, true, -1.0, true, 2.0);
 	
 	CreateConVar("se_allowpure", /*не трогать*/"0"/*do not touch*/, "Разрешить обработку sv_pure клиентом.", FCVAR_REPLICATED, true, 0.0, true, 1.0);
 	
@@ -113,7 +119,7 @@ public void OnPluginStart()
 	g_hPrivateMode = CreateConVar("clientmod_private", "0", "Фильтрация клиентов. -1 - не пускать только устаревшие версии ClientMod и пускать обычных клиентов. 0 - отключить. 1 - пускать только актуальные версии ClientMod. 2 - пускать только актуальные и устаревшие версии ClientMod.", FCVAR_NOTIFY, true, -1.0, true, 2.0);
 	g_hPrivateMessage = CreateConVar("clientmod_private_message", "The server is ClientMod users only. Download it from https://clientmod.ru ", "Текст для кика не ClientMod клиентов, если clientmod_private = 1");
 	
-	g_hClientVersionMin = CreateConVar("clientmod_client_version_min", "3.0.0.9595", "Минимальная версия для входа актуального ClientMod клиента на сервер.");
+	g_hClientVersionMin = CreateConVar("clientmod_client_version_min", "3.0.0.9717", "Минимальная версия для входа актуального ClientMod клиента на сервер.");
 	g_hClientVersionMinMessage = CreateConVar("clientmod_client_version_min_message", "Your version of ClientMod is too old to play on this server", "Текст для кика, если клиент ниже минимальной версии.");
 	
 	g_hLogging = CreateConVar("clientmod_logging", "1", "Логинование клиентов.", 0, true, 0.0, true, 1.0);
@@ -128,13 +134,19 @@ public void OnPluginStart()
 	g_hTeamCT.AddChangeHook(TeamCvarHook);
 	g_hClientVersionMin.AddChangeHook(ClientVersionHook);
 	g_hShootPosFix.AddChangeHook(ShootPosFixHook);
-	g_hClockCorrectionFix.AddChangeHook(ClockCorrectionFixHook);
+	g_hClockCorrectionTicks.AddChangeHook(ClockCorrectionTicksHook);
 	sv_turbophysics.AddChangeHook(ShootPosFixHook);
-	SmokeCvarHook(null, "", "");
-	ClientVersionHook(null, "", "");
 	
+	CM_InitUserMassages();
+	g_hSmokeLineBlockedFix.Init();
+	g_hClockCorrectionChanger.Init();
 	CM_TagsInit();
 	CM_AutoBhopInit();
+	
+	SmokeCvarHook(null, "", "");
+	ClientVersionHook(null, "", "");
+	SmokeFixHook(null, "", "");
+	ClockCorrectionTicksHook(null, "", "");
 	
 	for (int i = 1; i <= MaxClients; i++)
 	{
@@ -147,30 +159,28 @@ public void OnPluginStart()
 			}
 		}
 	}
-	CM_SmokeFixEnable(true);
-	SmokeFixHook(null, "", "");
-	CM_InitUserMassages();
-	CM_ClockCorrectionFixEnable(true);
-	ClockCorrectionFixHook(null, "", "");
 }
-
 public void OnPluginEnd()
 {
-	CM_SmokeFixDisable();
-	CM_ClockCorrectionFixDisable();
+	g_hSmokeLineBlockedFix.Disable();
+	g_hClockCorrectionChanger.Disable();
 }
 
 public void OnMapStart()
 {
 	TeamCvarHook(null, "", "");
 }
+public void OnEntityCreated(int entity, const char[] classname)
+{
+	SmokeFix_OnEntityCreated(entity, classname);
+}
 
-public Action Command_Tags(int args)
+Action Command_Tags(int args)
 {
 	if (args == 2)
 	{
 		char type[8]; GetCmdArg(1, type, sizeof(type));
-		char buffer[MAX_TAG_STRING_LENGTH]; GetCmdArg(2, buffer, sizeof(buffer));
+		char buffer[MAX_TAG_ITEM_LENGTH]; GetCmdArg(2, buffer, sizeof(buffer));
 		if (strcmp(type, "add", false) == 0)
 		{
 			bool bResult = AddTag(buffer);
@@ -225,19 +235,11 @@ public void SmokeCvarHook(ConVar convar, const char[] oldValue, const char[] new
 	}
 	
 	CMSmokeFlag smoke = smoke_type == 1 ? CMSmokeFlag_DensityNormal : CMSmokeFlag_DensityBold;
-	int smoke_mode = g_hSmokeMode.IntValue;
-	if (smoke_mode == 0)
+	switch (g_hSmokeMode.IntValue)
 	{
-		g_hCMSmoke.SetInt(view_as<int>(smoke), true);
-		return;
-	}
-	if (smoke_mode == 1 || smoke_mode == 3)
-	{
-		smoke |= CMSmokeFlag_RemoveDust;
-	}
-	if (smoke_mode == 2 || smoke_mode == 3)
-	{
-		smoke |= CMSmokeFlag_ReduceTime;
+		case 1: smoke |= CMSmokeFlag_RemoveDust;
+		case 2: smoke |= CMSmokeFlag_ReduceTime;
+		case 3: smoke |= CMSmokeFlag_RemoveDust | CMSmokeFlag_ReduceTime;
 	}
 	g_hCMSmoke.SetInt(view_as<int>(smoke), true);
 }
@@ -250,9 +252,7 @@ public void VersionCvarHook(ConVar convar, const char[] oldValue, const char[] n
 public void OnClientConnected(int client)
 {
 	if (client < 1 || IsFakeClient(client) || IsClientInKickQueue(client))
-	{
 		return;
-	}
 	
 	bool bClientModUser = (GetClientInfo(client, "_client_version", _client_version[client], sizeof(_client_version[])) &&
 		strlen(_client_version[client]) > 2 && StringToInt(_client_version[client][0]) > 0);
@@ -262,10 +262,8 @@ public void OnClientConnected(int client)
 		strlen(_client_new) == 3 && _client_new[0] == '2' && _client_new[1] == '.'&& _client_new[2] == '0' &&
 		_client_version[client][0] == '3');
 	
-
 	g_eCMAuth[client] = bClientModNew ? CM_Auth_ClientMod : (bClientModUser ? CM_Auth_ClientMod_Outdated : CM_Auth_Original);
 	Call_OnClientAuth(client, g_eCMAuth[client]);
-	
 	
 	char _connect_method[16];
 	bool bHasConnectMethod = GetClientInfo(client, "_connectmethod", _connect_method, sizeof(_connect_method)) && _connect_method[0];
@@ -276,15 +274,11 @@ public void OnClientPutInServer(int client)
 {
 	if (!IsFakeClient(client))
 	{
-		if ((g_hAutoBhop.BoolValue || g_hDisableBhop.BoolValue))
-		{
+		if (g_hAutoBhop.BoolValue || g_hDisableBhop.BoolValue)
 			SDKHookEx(client, SDKHook_PreThink, OnClientPreThink);
-		}
 		
 		if (g_eCMAuth[client] == CM_Auth_ClientMod && CM_IsValidVersion(_client_version[client], "2.0.8"))
-		{
 			CM_SendValidation(client);
-		}
 		
 		if (g_hShootPosFix.BoolValue)
 		{
@@ -348,9 +342,7 @@ void Call_OnClientAuth(int client, CMAuthType type)
 	g_bClientLog[client] = false;
 	
 	if (IsClientAuthorized(client))
-	{
 		PrintLog(client, type);
-	}
 	
 	if ((g_hPrivateMode.IntValue == 1 && type != CM_Auth_ClientMod) || (g_hPrivateMode.IntValue == 2 && type < CM_Auth_ClientMod))
 	{
@@ -359,10 +351,8 @@ void Call_OnClientAuth(int client, CMAuthType type)
 		g_hPrivateMessage.GetString(szKickMessage, sizeof(szKickMessage));
 		ReplaceString(szKickMessage, sizeof(szKickMessage), "\\n", "\n");
 		KickClient(client, szKickMessage);
-		return;
 	}
-	
-	if ((type == CM_Auth_ClientMod && !CM_IsValidVersion(_client_version[client], _client_version_min)) || (g_hPrivateMode.IntValue == -1 && type == CM_Auth_ClientMod_Outdated))
+	else if ((type == CM_Auth_ClientMod && !CM_IsValidVersion(_client_version[client], _client_version_min)) || (g_hPrivateMode.IntValue == -1 && type == CM_Auth_ClientMod_Outdated))
 	{
 		PrintLog(client, type);
 		char szKickMessage[192];
@@ -380,81 +370,119 @@ public int Native_GetClientModAuth(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1);
 	if (client < 1 || client >= sizeof(g_eCMAuth) || !IsClientConnected(client) || IsFakeClient(client))
-	{
 		return 0;
-	}
+		
 	return view_as<int>(g_eCMAuth[client]);
 }
 public int Native_GetClientModVersion(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1);
 	if (client < 1 || client >= sizeof(_client_version) || !IsClientConnected(client) || IsFakeClient(client) || g_eCMAuth[client] < CM_Auth_ClientMod)
-	{
 		return 0;
-	}
+		
 	return SetNativeString(2, _client_version[client], GetNativeCell(3)) == SP_ERROR_NONE;
 }
 public int Native_AddTag(Handle plugin, int numParams)
 {
-	char buffer[MAX_TAG_STRING_LENGTH];
+	char buffer[MAX_TAG_ITEM_LENGTH];
 	FormatNativeString(0, 1, 2, sizeof(buffer), _, buffer);
 	return AddTag(buffer);
 }
 public int Native_RemoveTag(Handle plugin, int numParams)
 {
-	char buffer[MAX_TAG_STRING_LENGTH];
+	char buffer[MAX_TAG_ITEM_LENGTH];
 	FormatNativeString(0, 1, 2, sizeof(buffer), _, buffer);
 	return RemoveTag(buffer);
 }
 public int Native_EndUserMessage(Handle plugin, int numParams)
 {
-	CM_PatchUserMessages();
 	EndMessage();
-	CM_UnpatchUserMessages();
 	return 1;
 }
 public int Native_GetClientConnectMethod(Handle plugin, int numParams)
 {
 	int client = GetNativeCell(1);
 	if (client < 1 || client >= sizeof(g_eClientConnectMethod) || !IsClientConnected(client) || IsFakeClient(client))
-	{
 		return 0;
-	}
+		
 	return g_eClientConnectMethod[client];
 }
 
 /********
  * Tags *
  ********/
-bool AddTag(char[] pszTag)
+public bool AddTagCvarLink(const char[] szCvar, const char[] szTag)
+{
+	ConVar pCvar = FindConVar(szCvar);
+	if (pCvar == null)
+		return false;
+	
+	if (!g_aTagCvars.SetString(szCvar, szTag, false))
+		return false;
+	
+	pCvar.AddChangeHook(TagCvarLinkHook);
+	TagCvarLinkHook(pCvar, "", "");
+	return true;
+}
+public bool RemoveTagCvarLink(const char[] szCvar)
+{
+	ConVar pCvar = FindConVar(szCvar);
+	if (pCvar == null)
+		return false;
+	
+	if (!g_aTagCvars.Remove(szCvar))
+		return false;
+	
+	pCvar.RemoveChangeHook(TagCvarLinkHook);
+	return true;
+}
+public void TagCvarLinkHook(ConVar convar, const char[] oldValue, const char[] newValue)
+{
+	if (oldValue[0] != '\0' && StringToInt(oldValue) == convar.IntValue)
+		return;
+	
+	char szCvarName[32];
+	convar.GetName(szCvarName, sizeof(szCvarName));
+	
+	char szCvarTag[MAX_TAG_ITEM_LENGTH];
+	if (!g_aTagCvars.GetString(szCvarName, szCvarTag, sizeof(szCvarTag)))
+		return;
+	
+	char szCvarDefault[16];
+	convar.GetDefault(szCvarDefault, sizeof(szCvarDefault));
+	if (StringToInt(szCvarDefault) != convar.IntValue)
+	{
+		AddTag(szCvarTag);
+	}
+	else
+	{
+		RemoveTag(szCvarTag);
+	}
+}
+bool AddTag(const char[] pszTag)
 {
 	if (strlen(pszTag) < 1)
-	{
 		return false;
-	}
 	
-	char buffer[MAX_TAG_STRING_LENGTH];
+	char buffer[MAX_TAG_ITEM_LENGTH];
 	for (int index = 0; index < g_aTagList.Length; index++)
 	{
 		if (g_aTagList.GetString(index, buffer, sizeof(buffer)) > 0 && !strcmp(buffer, pszTag, false))
-		{
 			return false;
-		}
 	}
 	
 	strcopy(buffer, sizeof(buffer), pszTag);
 	g_aTagList.PushString(buffer);
+	g_aTagList.Sort(Sort_Ascending, Sort_String);
 	CM_WriteTag();
 	return true;
 }
-bool RemoveTag(char[] pszTag)
+bool RemoveTag(const char[] pszTag)
 {
 	if (strlen(pszTag) < 1)
-	{
 		return false;
-	}
 	
-	char buffer[MAX_TAG_STRING_LENGTH];
+	char buffer[MAX_TAG_ITEM_LENGTH];
 	for (int index = 0; index < g_aTagList.Length; index++)
 	{
 		if (g_aTagList.GetString(index, buffer, sizeof(buffer)) > 0 && !strcmp(buffer, pszTag, false))
@@ -466,10 +494,14 @@ bool RemoveTag(char[] pszTag)
 	}
 	return false;
 }
+bool bSuppressWriteTag = false;
 void CM_WriteTag()
 {
+	if (bSuppressWriteTag)
+		return;
+	
 	char szTagString[MAX_TAG_STRING_LENGTH];
-	char buffer[MAX_TAG_STRING_LENGTH]; buffer[0] = 0;
+	char buffer[MAX_TAG_ITEM_LENGTH];
 	for (int index = 0; index < g_aTagList.Length; index++)
 	{
 		if (g_aTagList.GetString(index, buffer, sizeof(buffer)) > 0)
@@ -477,58 +509,40 @@ void CM_WriteTag()
 			Format(szTagString, sizeof(szTagString), "%s%s,", szTagString, buffer);
 		}
 	}
+	
 	int iSize = strlen(szTagString);
 	if (iSize > 0)
 	{
 		szTagString[iSize - 1] = 0;
 	}
+	
+	g_hCMTags.RemoveChangeHook(TagsCvarHook);
 	g_hCMTags.SetString(szTagString);
+	g_hCMTags.AddChangeHook(TagsCvarHook);
 }
 void CM_TagsInit()
 {
+	bSuppressWriteTag = true;
 	g_hCMTags.AddChangeHook(TagsCvarHook);
-	g_hPrivateMode.AddChangeHook(TagsCvarHook);
-	
-	AddTag("cm");
 	
 	{
-		char szTickRate[MAX_TAG_STRING_LENGTH];
+		char szTickRate[16];
 		FormatEx(szTickRate, sizeof(szTickRate), "%itick", RoundToNearest(1.0 / GetTickInterval()));
 		AddTag(szTickRate);
 	}
 	
-	/*
-	лень было делать динамическую обработку кваров по типу
-	sv_ff 1 -> AddTag("ff");
-	sv_ff 0 -> RemoveTag("ff");
-	
-	{
-		ConVar mp_friendlyfire = FindConVar("mp_friendlyfire");
-		if (mp_friendlyfire != null && mp_friendlyfire.BoolValue)
-			AddTag("friendlyfire");
-	}
-	{
-		ConVar sv_alltalk = FindConVar("sv_alltalk");
-		if (sv_alltalk != null && sv_alltalk.BoolValue)
-			AddTag("alltalk");
-	}
-	*/
+	AddTagCvarLink("clientmod_private", "private");
+	AddTagCvarLink("se_voice_opus", "opus");
+	AddTagCvarLink("se_autobunnyhopping", "autobhop");
+	AddTagCvarLink("se_disablebunnyhopping", "nobhop");
+	AddTagCvarLink("se_allowpure", "pure");
+	AddTagCvarLink("se_newsmoke", "newsmoke");
+	bSuppressWriteTag = false;
+	CM_WriteTag();
 }
 public void TagsCvarHook(ConVar convar, const char[] oldValue, const char[] newValue)
 {
-	bool bValid = false;
-	if (g_hPrivateMode.BoolValue)
-	{
-		bValid |= AddTag("private");
-	}
-	else
-	{
-		bValid |= RemoveTag("private");
-	}
-	if (!bValid)
-	{
-		CM_WriteTag();
-	}
+	CM_WriteTag();
 }
 
 
@@ -581,7 +595,7 @@ public void OnClientPreThink(int client)
 void PreventBunnyJumping(int client)
 {
 	if (!g_hDisableBhop.BoolValue || IsFakeClient(client) || !IsPlayerAlive(client) || !(GetEntityFlags(client) & FL_ONGROUND) || !(GetClientButtons(client) & IN_JUMP) ||
-	!(GetEntityMoveType(client) == MOVETYPE_ISOMETRIC || GetEntityMoveType(client) == MOVETYPE_WALK))
+		!(GetEntityMoveType(client) == MOVETYPE_ISOMETRIC || GetEntityMoveType(client) == MOVETYPE_WALK))
 		return;
 	
 	float m_flMaxspeed = GetEntPropFloat(client, Prop_Send, "m_flMaxspeed");
@@ -660,130 +674,35 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 /*************
  * Smoke fix *
  *************/
-Address aSmokeFixAddr = Address_Null;
-float fSmokeFixValue =  108.5;
-bool bSmokeFixed = false;
-Address FindSmokeFix(Address pStart)
+public void SmokeFixHook(ConVar convar, const char[] oldValue, const char[] newValue)
 {
-	int pattern[] = { 0x0F, 0x2F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F, 0x97 };
-	for (int i = 0; i < 3000; i++)
+	if (!g_hSmokeLineBlockedFix.IsAvailable())
 	{
-		if (LoadFromAddress(pStart, NumberType_Int8) == pattern[0])
-		{
-			bool bFound = true;
-			for (int j = 1; j < sizeof(pattern); j++)
-			{
-				int iDestByte = LoadFromAddress(pStart + view_as<Address>(j), NumberType_Int8);
-				int iSrcByte = pattern[j];
-				
-				if (iSrcByte != 0xFF)
-				{
-					if (iDestByte != iSrcByte)
-					{
-						bFound = false;
-						break;
-					}
-				}
-			}
-			if (bFound)
-			{
-				Address pRet = pStart + view_as<Address>(3);
-				Address pTemp = view_as<Address>(LoadFromAddress(pRet, NumberType_Int32));
-				if (view_as<float>(LoadFromAddress(pTemp, NumberType_Int32)) == fSmokeFixValue)
-				{
-					return pRet;
-				}
-			}
-		}
-		
-		pStart++;
-	}
-	return Address_Null;
-}
-void CM_SmokeFixEnable(bool bInit = false)
-{
-	if (bInit)
-	{
-		Handle hConfig = LoadGameConfigFile("clientmod");
-		if (hConfig == INVALID_HANDLE)
-		{
-			SetFailState("Load clientmod gamedata Config Fail");
-		}
-		
-		aSmokeFixAddr = GameConfGetAddress(hConfig, "CBotManager_IsLineBlockedBySmoke");
-		int iSmokeBlockOffset1 = GameConfGetOffset(hConfig, "BlockedBySmokeOffset1");
-		int iSmokeBlockOffset2 = GameConfGetOffset(hConfig, "BlockedBySmokeOffset2");
-		
-		CloseHandle(hConfig);
-		
-		if (aSmokeFixAddr == Address_Null || iSmokeBlockOffset1 == -1 || iSmokeBlockOffset2 == -1)
-		{
-			SetFailState("Read clientmod gamedata Config Fail");
-		}
-		
-		if (iSmokeBlockOffset1)
-		{
-			aSmokeFixAddr += view_as<Address>(iSmokeBlockOffset1);
-			aSmokeFixAddr += view_as<Address>(LoadFromAddress(aSmokeFixAddr, NumberType_Int32) + 4);
-			aSmokeFixAddr += view_as<Address>(iSmokeBlockOffset2);
-		}
-		else
-		{
-			aSmokeFixAddr = FindSmokeFix(aSmokeFixAddr);
-		}
-		
-		if (aSmokeFixAddr == Address_Null)
-		{
-			SetFailState("Invalid smoke patch address");
-			return;
-		}
-		
-		
-		aSmokeFixAddr = view_as<Address>(LoadFromAddress(aSmokeFixAddr, NumberType_Int32));
-		if (view_as<float>(LoadFromAddress(aSmokeFixAddr, NumberType_Int32)) != fSmokeFixValue)
-		{
-			SetFailState("Invalid smoke patch value");
-		}
-		
+		PrintToServer("[ClientMod] SmokeFix patch is not available.");
+		g_hSmokeFix.RestoreDefault();
 		return;
 	}
 	
-	if (!bSmokeFixed)
-	{
-		StoreToAddress(aSmokeFixAddr, view_as<int>(0.0), NumberType_Int32);
-		bSmokeFixed = true;
-	}
-}
-void CM_SmokeFixDisable()
-{
-	if (bSmokeFixed)
-	{
-		StoreToAddress(aSmokeFixAddr, view_as<int>(fSmokeFixValue), NumberType_Int32);
-		bSmokeFixed = false;
-	}
-}
-public void SmokeFixHook(ConVar convar, const char[] oldValue, const char[] newValue)
-{
 	if (g_hSmokeFix.BoolValue)
 	{
-		CM_SmokeFixEnable();
+		g_hSmokeLineBlockedFix.Enable();
 	}
 	else
 	{
-		CM_SmokeFixDisable();
+		g_hSmokeLineBlockedFix.Disable();
 	}
 }
-public void OnEntityCreated(int entity, const char[] classname) 
-{ 
-	if (bSmokeFixed && entity > MaxClients && classname[0] == 's' && strcmp(classname, "smokegrenade_projectile") == 0)
+void SmokeFix_OnEntityCreated(int entity, const char[] classname)
+{
+	if (g_hCMSmoke.IntValue != 0 && entity > MaxClients && classname[0] == 's' && strcmp(classname, "smokegrenade_projectile") == 0)
 	{
 		SDKHookEx(entity, SDKHook_ThinkPost, SmokeFix_OnThinkPost);
 	}
 }
 public void SmokeFix_OnThinkPost(int entity)
 {
-	int rgba[4];
-	GetEntityRenderColor(entity, rgba[0], rgba[1], rgba[2], rgba[3]);
+	//задержка перед полным исчезновением гранаты, чтобы противник раньше времени не спотился на радаре
+	int rgba[4]; GetEntityRenderColor(entity, rgba[0], rgba[1], rgba[2], rgba[3]);
 	if (rgba[3] == 1)
 	{
 		int next_think = GetEntProp(entity, Prop_Data, "m_nNextThinkTick");
@@ -800,241 +719,32 @@ public void SmokeFix_OnThinkPost(int entity)
 /***********************
  * Clock correction fix*
  ***********************/
-Address aClockCorrectionFixAddr = Address_Null;
-float fClockCorrectionOriginalValue = 0.06;
-float fClockCorrectionValue;
-void CM_ClockCorrectionFixEnable(bool bInit = false)
+public void ClockCorrectionTicksHook(ConVar convar, const char[] oldValue, const char[] newValue)
 {
-	if (bInit)
+	if (!g_hClockCorrectionChanger.IsAvailable())
 	{
-		Handle hConfig = LoadGameConfigFile("clientmod");
-		if (hConfig == INVALID_HANDLE)
-		{
-			SetFailState("Load clientmod gamedata Config Fail");
-		}
-		
-		aClockCorrectionFixAddr = GameConfGetAddress(hConfig, "CBasePlayer_AdjustPlayerTimeBase");
-		int iValueOffset = GameConfGetOffset(hConfig, "CBasePlayer_AdjustPlayerTimeBaseOffset");
-		
-		CloseHandle(hConfig);
-		
-		if (aClockCorrectionFixAddr == Address_Null || iValueOffset == -1)
-		{
-			SetFailState("Invalid clock correction patch address");
-			return;
-		}
-		
-		aClockCorrectionFixAddr += view_as<Address>(iValueOffset);
-		aClockCorrectionFixAddr = view_as<Address>(LoadFromAddress(aClockCorrectionFixAddr, NumberType_Int32));
-		fClockCorrectionValue = view_as<float>(LoadFromAddress(aClockCorrectionFixAddr, NumberType_Int32));
-		if (fClockCorrectionValue != fClockCorrectionOriginalValue)
-		{
-			SetFailState("Invalid clock correction patch value %f", fClockCorrectionValue);
-		}
+		PrintToServer("[ClientMod] ClockCorrectionTicks patch is not available.");
+		g_hClockCorrectionTicks.RestoreDefault();
 		return;
 	}
 	
-	float fix_value = GetClockCorrectionFixValue();
-	if (fix_value != fClockCorrectionValue)
-	{
-		fClockCorrectionValue = fix_value;
-		StoreToAddress(aClockCorrectionFixAddr, view_as<int>(fClockCorrectionValue), NumberType_Int32);
-	}
-}
-public void ClockCorrectionFixHook(ConVar convar, const char[] oldValue, const char[] newValue)
-{
-	CM_ClockCorrectionFixEnable();
-}
-void CM_ClockCorrectionFixDisable()
-{
-	if (fClockCorrectionValue != fClockCorrectionOriginalValue)
-	{
-		StoreToAddress(aClockCorrectionFixAddr, view_as<int>(fClockCorrectionOriginalValue), NumberType_Int32);
-	}
-}
-float GetClockCorrectionFixValue()
-{
-	switch (g_hClockCorrectionFix.IntValue)
-	{
-		case 0:	return 0.0;
-		case 1:	return GetTickInterval();
-		case 2:	return GetTickInterval() * 2.0;
-	}
-	return fClockCorrectionOriginalValue;
-}
-
-
-/*********
- * Utils *
- *********/
-stock bool CM_IsValidVersion(const char[] version1, const char[] version2)
-{
-	char client_version_char[6][8];
-	char target_version_char[6][8];
-	int client_numbers = ExplodeString(version1, ".", client_version_char, sizeof(client_version_char), sizeof(client_version_char[]));
-	int target_numbers = ExplodeString(version2, ".", target_version_char, sizeof(target_version_char), sizeof(target_version_char[]));
-	int min_numbers = client_numbers < target_numbers ? client_numbers : target_numbers;
-	int max_numbers = client_numbers >= target_numbers ? client_numbers : target_numbers;
-	if (min_numbers < 3 || max_numbers > 4)
-	{
-		return false;
-	}
-	
-	int client_version[4];
-	int target_version[4];
-	for (int i = 0; i < min_numbers; i++)
-	{
-		client_version[i] = StringToInt(client_version_char[i]);
-		target_version[i] = StringToInt(target_version_char[i]);
-	}
-	return CM_VersionCheck(client_version, target_version, min_numbers);
-}
-stock bool CM_VersionCheck(int[] version, int[] version_target, int size)
-{
-	int count = size - 1;
-	for (int i = 0; i < count; i++)
-	{
-		if (version[i] != version_target[i])
-		{
-			return (version[i] > version_target[i]);
-		}
-	}
-	return (version[count] >= version_target[count]);
-}
-stock void CM_SendValidation(int client)
-{
-	Event newEvent = CreateEvent("player_info", true);
-	newEvent.SetString("name", "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ? {}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{} ?{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}");
-	newEvent.FireToClient(client);
-	newEvent.Cancel();
+	g_hClockCorrectionChanger.Enable(g_hClockCorrectionTicks.IntValue);
 }
 
 
 /************************
  * Custom user messages *
  ************************/
-Address aMessageFixAddr = Address_Null;
-int iMessageFixOriginal = 0;
-int iMessageFixPatch = 0;
-stock void CM_InitUserMassages()
+void CM_InitUserMassages()
 {
-	Handle hConfig = LoadGameConfigFile("clientmod");
-	if (hConfig == INVALID_HANDLE)
-	{
-		SetFailState("Load clientmod gamedata Config Fail");
-	}
-	
-	aMessageFixAddr = GameConfGetAddress(hConfig, "Message_CheckMessageLength");
-	int iMessageOffset = GameConfGetOffset(hConfig, "Message_CheckMessageLengthOffset");
-	
-	CloseHandle(hConfig);
-	
-	if (aMessageFixAddr == Address_Null || iMessageOffset == -1)
-	{
-		SetFailState("Read clientmod gamedata Config Fail");
-	}
-	
-	if (iMessageOffset == 0)
-	{
-		if (LoadFromAddress(aMessageFixAddr, NumberType_Int8) == 0xE8)
-		{
-			aMessageFixAddr++;
-			aMessageFixAddr += view_as<Address>(LoadFromAddress(aMessageFixAddr, NumberType_Int8) + 4); 
-		}
-	}
-	else
-	{
-		aMessageFixAddr = CM_FindPatchUserMassages(aMessageFixAddr);
-		if (aMessageFixAddr == Address_Null)
-		{
-			SetFailState("Could not find UserMassages patch addr");
-		}
-	}
-	
-	iMessageFixOriginal = LoadFromAddress(aMessageFixAddr, NumberType_Int32);
-	
-	if (iMessageOffset == 0)
-	{
-		StoreToAddress(aMessageFixAddr,							0x89,	NumberType_Int8);
-		StoreToAddress(aMessageFixAddr + view_as<Address>(1),	0xD0,	NumberType_Int8);
-		StoreToAddress(aMessageFixAddr + view_as<Address>(2),	0xC3,	NumberType_Int8);
-		StoreToAddress(aMessageFixAddr + view_as<Address>(3),	0x0,	NumberType_Int8);
-		iMessageFixPatch = LoadFromAddress(aMessageFixAddr, NumberType_Int32);
-	}
-	else
-	{
-		bool bOriginal = LoadFromAddress(aMessageFixAddr, NumberType_Int8) == 0xEF;
-		StoreToAddress(aMessageFixAddr, bOriginal ? 0x8B : 0x83, NumberType_Int8);
-		iMessageFixPatch = LoadFromAddress(aMessageFixAddr, NumberType_Int32);
-	}
-	
-	CM_UnpatchUserMessages();
-}
-Address CM_FindPatchUserMassages(Address pStart)
-{
-	int pattern_original[] = 	{ 0xF, 0x84, 0xEF, 0x00, 0x00, 0x00, 0x3D };
-	int pattern_amd[] = 		{ 0xF, 0x84, 0xCB, 0x00, 0x00, 0x00, 0x3D };
-	
-	for (int i = 0; i < 600; i++)
-	{
-		if (LoadFromAddress(pStart, NumberType_Int8) == pattern_original[0])
-		{
-			bool bFound = true;
-			for (int j = 1; j < sizeof(pattern_original); j++)
-			{
-				int iDestByte = LoadFromAddress(pStart + view_as<Address>(j), NumberType_Int8);
-				int iSrcByte = pattern_original[j];
-				
-				if (iSrcByte != 0xFF)
-				{
-					if (iDestByte != iSrcByte)
-					{
-						bFound = false;
-						break;
-					}
-				}
-			}
-			if (bFound)
-			{
-				Address pRet = pStart + view_as<Address>(2);
-				return pRet;
-			}
-		}
-		if (LoadFromAddress(pStart, NumberType_Int8) == pattern_amd[0])
-		{
-			bool bFound = true;
-			for (int j = 1; j < sizeof(pattern_amd); j++)
-			{
-				int iDestByte = LoadFromAddress(pStart + view_as<Address>(j), NumberType_Int8);
-				int iSrcByte = pattern_amd[j];
-				
-				if (iSrcByte != 0xFF)
-				{
-					if (iDestByte != iSrcByte)
-					{
-						bFound = false;
-						break;
-					}
-				}
-			}
-			if (bFound)
-			{
-				Address pRet = pStart + view_as<Address>(2);
-				return pRet;
-			}
-		}
-		
-		pStart++;
-	}
-	return Address_Null;
-}
-stock void CM_PatchUserMessages()
-{
-	StoreToAddress(aMessageFixAddr, iMessageFixPatch, NumberType_Int32);
-}
-stock void CM_UnpatchUserMessages()
-{
-	StoreToAddress(aMessageFixAddr, iMessageFixOriginal, NumberType_Int32);
+	UserMessageRegister g_hUserMessageRegister;
+	g_hUserMessageRegister.Init();
+	g_hUserMessageRegister.FillUnusedMessages();
+	g_hUserMessageRegister.CreateMessage("KeyHintText", CMUserMsg_KeyHintText);
+	g_hUserMessageRegister.CreateMessage("BigSayText", CMUserMsg_BigSayText);
+	g_hUserMessageRegister.CreateMessage("BigHudMsg", CMUserMsg_BigHudMsg);
+	g_hUserMessageRegister.CreateMessage("SoundOverrides", CMUserMsg_SoundOverrides);
+	g_hUserMessageRegister.CreateMessage("BigHudMsgBg", CMUserMsg_BigHudMsgBg);
 }
 
 
@@ -1047,6 +757,7 @@ public void ShootPosFixHook(ConVar convar, const char[] oldValue, const char[] n
 	{
 		PrintToServer("se_shootpositionfix is incompatible with sv_turbophysics 0");
 		g_hShootPosFix.SetBool(false, true);
+		return;
 	}
 	
 	if (g_hShootPosFix == convar)

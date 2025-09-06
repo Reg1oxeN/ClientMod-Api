@@ -1,3 +1,8 @@
+#if defined _clientmod_usermessage_included
+  #endinput
+#endif
+#define _clientmod_usermessage_included
+
 #define CMUserMsg_KeyHintText	view_as<UserMsg>(34)
 #define CMUserMsg_BigSayText	view_as<UserMsg>(35)
 #define CMUserMsg_BigHudMsg		view_as<UserMsg>(36)
@@ -27,8 +32,7 @@ stock bool CM_PrintKeyHintText(int client, const char[] format, any ...)
 	VFormat(buffer, sizeof(buffer), format, 3);
 
 	BfWriteString(userMessage, buffer);
-	CM_EndUserMessage();
-	CloseHandle(userMessage);
+	EndMessage();
 	return true;
 }
 
@@ -67,9 +71,7 @@ stock void CM_PrintBigSayText(int client, const char[] format, any ...)
 				BfWriteByte(userMessage, 0/*author*/);
 			}
 			BfWriteString(userMessage, writeMsg);
-			
-			CM_EndUserMessage();
-			CloseHandle(userMessage);
+			EndMessage();
 		}
 	}
 }
@@ -120,9 +122,7 @@ stock bool CM_PrintBigHudMsg(int client, int channel, float posX, float posY, fl
 			}
 			startIndex += strlen(writeMsg);
 			BfWriteString(userMessage, writeMsg);
-			
-			CM_EndUserMessage();
-			CloseHandle(userMessage);
+			EndMessage();
 		}
 	}
 	return true;
@@ -181,9 +181,7 @@ stock bool CM_PrintBigHudMsgBg(int client, int channel, float posX, float posY, 
 			}
 			startIndex += strlen(writeMsg);
 			BfWriteString(userMessage, writeMsg);
-			
-			CM_EndUserMessage();
-			CloseHandle(userMessage);
+			EndMessage();
 		}
 	}
 	return true;
@@ -208,8 +206,7 @@ stock bool CM_AddSoundOverrides(int client, const char[] path, bool precache = f
 	BfWriteByte(userMessage, 1);
 	BfWriteByte(userMessage, precache ? 1 : 0);
 	BfWriteString(userMessage, send_path);
-	CM_EndUserMessage();
-	CloseHandle(userMessage);
+	EndMessage();
 	return true;
 }
 
@@ -228,7 +225,6 @@ stock bool CM_ClearSoundOverrides(int client)
 	}
 	
 	BfWriteByte(userMessage, 0);
-	CM_EndUserMessage();
-	CloseHandle(userMessage);
+	EndMessage();
 	return true;
 }

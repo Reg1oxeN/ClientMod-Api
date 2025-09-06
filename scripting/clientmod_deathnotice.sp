@@ -6,7 +6,6 @@
 #include <cstrike>
 #include <clientmod>
 #include <clientmod/tracerayfilter>
-#include <clientmod/multicolors>
 
 public Plugin myinfo =
 {
@@ -61,11 +60,6 @@ public void OnPluginStart()
 	}
 }
 
-public void OnPluginEnd()
-{
-	delete g_vSmokeList;
-}
-
 public void OnAllPluginsLoaded()
 {
 	g_hCMSmoke = FindConVar("se_newsmoke");
@@ -77,7 +71,7 @@ public void OnAllPluginsLoaded()
 
 public void OnEntityCreated(int entity, const char[] classname)
 {
-	if (strcmp(classname, "env_particlesmokegrenade" ) == 0)
+	if (entity > MaxClients && strcmp(classname, "env_particlesmokegrenade") == 0)
 	{
 		SDKHook(entity, SDKHook_SpawnPost, OnSmokeSpawn);
 	}
@@ -346,7 +340,7 @@ bool IsSmokeAlive(int entity)
 	
 	float m_flSpawnTime = GetEntPropFloat(entity, Prop_Send, "m_flSpawnTime");
 	CMSmokeFlag smokeCvar = view_as<CMSmokeFlag>(g_hCMSmoke.IntValue);
-	bool bNewSmoke = (smokeCvar & CMSmokeFlag_DensityNormal) || smokeCvar & CMSmokeFlag_DensityBold;
+	bool bNewSmoke = (smokeCvar & CMSmokeFlag_DensityNormal) || (smokeCvar & CMSmokeFlag_DensityBold);
 	float flExpandTime = (bNewSmoke ? 1.0 : 5.5) * 0.5;
 	float flLifetime = GetGameTime() - m_flSpawnTime;
 	if (flExpandTime > flLifetime)
@@ -354,16 +348,12 @@ bool IsSmokeAlive(int entity)
 		return false;
 	}
 	
-	bool bReduceTime = bNewSmoke && smokeCvar & CMSmokeFlag_ReduceTime;
+	bool bReduceTime = bNewSmoke && (smokeCvar & CMSmokeFlag_ReduceTime);
 	float m_FadeStartTime = GetEntPropFloat(entity, Prop_Send, "m_FadeStartTime") - (bReduceTime ? 2.0 : 0.0);
 	float m_FadeEndTime = GetEntPropFloat(entity, Prop_Send, "m_FadeEndTime") - (bReduceTime ? 2.0 : 0.0);
 	m_FadeEndTime -= (m_FadeEndTime - m_FadeStartTime) * 0.5;
-	if (m_FadeStartTime > flLifetime || m_FadeEndTime > flLifetime)
-	{
-		return true;
-	}
 	
-	return false;
+	return (m_FadeStartTime > flLifetime || m_FadeEndTime > flLifetime);
 }
 
 bool IsSmokeKill(int client, int attacker)

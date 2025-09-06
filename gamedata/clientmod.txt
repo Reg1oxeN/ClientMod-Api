@@ -15,17 +15,6 @@
 					"signature" "CBotManager_IsLineBlockedBySmoke_Sig"
 				}
 			}
-			"Message_CheckMessageLength"
-			{
-				"windows"
-				{
-					"signature" "Message_CheckMessageLength_Sig"
-				}
-				"linux"
-				{
-					"signature" "Message_CheckMessageLength_Sig"
-				}
-			}
 			"CBasePlayer_AdjustPlayerTimeBase"
 			{
 				"windows"
@@ -37,28 +26,62 @@
 					"signature" "CBasePlayer_AdjustPlayerTimeBase_Sig"
 				}
 			}
+			
+			"GlobalUserMessages"
+			{
+				"windows"
+				{
+					"signature" "GlobalUserMessages_Sig"
+				}
+				"linux"
+				{
+					"signature" "GlobalUserMessages_Sig"
+				}
+			}
+			"CUserMessages_Register"
+			{
+				"windows"
+				{
+					"signature" "CUserMessages_Register_Sig"
+				}
+				"linux"
+				{
+					"signature" "CUserMessages_Register_Sig"
+				}
+			}
+			"CUserMessages_LookupUserMessage"
+			{
+				"windows"
+				{
+					"signature" "CUserMessages_LookupUserMessage_Sig"
+				}
+				"linux"
+				{
+					"signature" "CUserMessages_LookupUserMessage_Sig"
+				}
+			}
 		}
 		"Offsets"
 		{
-			"BlockedBySmokeOffset1"
+			"CBotManager_IsLineBlockedBySmoke_Offset"
+			{
+				"windows"		"2"
+				"linux"			"0"
+			}
+			"CBasePlayer_AdjustPlayerTimeBase_Offset"
+			{
+				"windows"		"2"
+				"linux"			"0"
+			}
+			"GlobalUserMessages_Offset"
+			{
+				"windows"		"2"
+				"linux"			"0"
+			}
+			"IsWindows"
 			{
 				"windows"		"1"
 				"linux"			"0"
-			}
-			"BlockedBySmokeOffset2"
-			{
-				"windows"		"1432"
-				"linux"			"1177"
-			}
-			"Message_CheckMessageLengthOffset"
-			{
-				"windows"		"0"
-				"linux"			"45"
-			}
-			"CBasePlayer_AdjustPlayerTimeBaseOffset"
-			{
-				"windows"		"65"
-				"linux"			"64"
 			}
 		}
 		
@@ -67,20 +90,33 @@
 			"CBotManager_IsLineBlockedBySmoke_Sig"
 			{
 				"library"		"server"
-				"windows"		"\xE8\x2A\x2A\x2A\x2A\x84\xC0\x75\xCE"
+				"windows"		"\xD8\x1D\x2A\x2A\x2A\x2A\xDF\xE0\xF6\xC4\x41\x75\x04\xB3\x01\xEB\x02\x32\xDB\x8B\x0D"
 				"linux"			"@_ZN11CBotManager20IsLineBlockedBySmokeERK6VectorS2_f"
-			}
-			"Message_CheckMessageLength_Sig"
-			{
-				"library"		"engine"
-				"windows"		"\xE8\x2A\x2A\x2A\x2A\x85\xC0\x7C\x36"
-				"linux"			"@_ZN14CVEngineServer10MessageEndEv"
 			}
 			"CBasePlayer_AdjustPlayerTimeBase_Sig"
 			{
 				"library"		"server"
-				"windows"		"\x53\x8B\x5C\x24\x08\x85\xDB\x57\x8B\xF9\x0F"
+				"windows"		"\xD9\x05\x2A\x2A\x2A\x2A\xD8\x76\x1C\xD8\x05\x2A\x2A\x2A\x2A\xE8"
 				"linux"			"@_ZN11CBasePlayer20AdjustPlayerTimeBaseEi"
+			}
+			
+			"GlobalUserMessages_Sig"
+			{
+				"library"		"server"
+				"windows"		"\x8B\x0D\x2A\x2A\x2A\x2A\xE9\x65\x58\x15\x00"
+				"linux"			"@usermessages"
+			}
+			"CUserMessages_Register_Sig"
+			{
+				"library"		"server"
+				"windows"		"\x83\xEC\x08\x53\x56\x8B\x74\x24\x14\x57"
+				"linux"			"@_ZN13CUserMessages8RegisterEPKci"
+			}
+			"CUserMessages_LookupUserMessage_Sig"
+			{
+				"library"		"server"
+				"windows"		"\x8B\x44\x24\x04\x83\xEC\x08\x85\xC0\x74\x11"
+				"linux"			"@_ZN13CUserMessages17LookupUserMessageEPKc"
 			}
 		}
 	}

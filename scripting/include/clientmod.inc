@@ -2,12 +2,14 @@
   #endinput
 #endif
 #define _clientmod_included
+
 #include <clientmod/teams>
 
-#define CM_VERSION	"1.6.7"
+#define CM_VERSION	"1.7.0"
 #define CM_URL		"https://clientmod.ru"
 #define CM_AUTHOR	"Reg1oxeN"
-#define MAX_TAG_STRING_LENGTH 128
+#define MAX_TAG_ITEM_LENGTH 16
+#define MAX_TAG_STRING_LENGTH 256
 
 enum CMAuthType {
 	CM_Auth_Unknown = 0,
@@ -50,6 +52,8 @@ native bool CM_GetClientModVersion(int client, char[] version, int size);
 
 native CMAuthType CM_GetClientModAuth(int client);
 
+//используется только для обратной совместимости со старыми плагинами
+#pragma deprecated Use regular EndMessage() instead.
 native void CM_EndUserMessage();
 
 native int CM_GetClientConnectMethod(int client);
