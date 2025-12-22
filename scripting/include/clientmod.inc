@@ -5,7 +5,7 @@
 
 #include <clientmod/teams>
 
-#define CM_VERSION	"1.7.0"
+#define CM_VERSION	"1.7.1"
 #define CM_URL		"https://clientmod.ru"
 #define CM_AUTHOR	"Reg1oxeN"
 #define MAX_TAG_ITEM_LENGTH 16

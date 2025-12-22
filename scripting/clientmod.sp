@@ -44,6 +44,7 @@ bool g_bClientLog[MAXPLAYERS] = {true, ...};
 char _client_version[MAXPLAYERS][16];
 char _client_version_min[16];
 int g_eClientConnectMethod[MAXPLAYERS] = {0, ...};
+bool g_bReloadMode = false;
 
 ArrayList g_aTagList = null;
 StringMap g_aTagCvars = null;
@@ -119,7 +120,7 @@ public void OnPluginStart()
 	g_hPrivateMode = CreateConVar("clientmod_private", "0", "Фильтрация клиентов. -1 - не пускать только устаревшие версии ClientMod и пускать обычных клиентов. 0 - отключить. 1 - пускать только актуальные версии ClientMod. 2 - пускать только актуальные и устаревшие версии ClientMod.", FCVAR_NOTIFY, true, -1.0, true, 2.0);
 	g_hPrivateMessage = CreateConVar("clientmod_private_message", "The server is ClientMod users only. Download it from https://clientmod.ru ", "Текст для кика не ClientMod клиентов, если clientmod_private = 1");
 	
-	g_hClientVersionMin = CreateConVar("clientmod_client_version_min", "3.0.0.9717", "Минимальная версия для входа актуального ClientMod клиента на сервер.");
+	g_hClientVersionMin = CreateConVar("clientmod_client_version_min", "3.0.1.1837", "Минимальная версия для входа актуального ClientMod клиента на сервер.");
 	g_hClientVersionMinMessage = CreateConVar("clientmod_client_version_min_message", "Your version of ClientMod is too old to play on this server", "Текст для кика, если клиент ниже минимальной версии.");
 	
 	g_hLogging = CreateConVar("clientmod_logging", "1", "Логинование клиентов.", 0, true, 0.0, true, 1.0);
@@ -148,6 +149,7 @@ public void OnPluginStart()
 	SmokeFixHook(null, "", "");
 	ClockCorrectionTicksHook(null, "", "");
 	
+	g_bReloadMode = true;
 	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (IsClientConnected(i) && !IsFakeClient(i))
@@ -159,6 +161,7 @@ public void OnPluginStart()
 			}
 		}
 	}
+	g_bReloadMode = false;
 }
 public void OnPluginEnd()
 {
@@ -258,11 +261,13 @@ public void OnClientConnected(int client)
 		strlen(_client_version[client]) > 2 && StringToInt(_client_version[client][0]) > 0);
 		
 	char _client_new[8];
-	bool bClientModNew = bClientModUser && (GetClientInfo(client, "~clientmod", _client_new, sizeof(_client_new)) &&
-		strlen(_client_new) == 3 && _client_new[0] == '2' && _client_new[1] == '.'&& _client_new[2] == '0' &&
-		_client_version[client][0] == '3');
-	
-	g_eCMAuth[client] = bClientModNew ? CM_Auth_ClientMod : (bClientModUser ? CM_Auth_ClientMod_Outdated : CM_Auth_Original);
+	bool bClientModValid = false;
+	if (g_bReloadMode || (GetClientInfo(client, "~clientmod", _client_new, sizeof(_client_new)) && strcmp(_client_new, "2.0") == 0))
+	{
+		bClientModValid = bClientModUser && _client_version[client][0] >= _client_version_min[0];
+	}
+
+	g_eCMAuth[client] = bClientModValid ? CM_Auth_ClientMod : (bClientModUser ? CM_Auth_ClientMod_Outdated : CM_Auth_Original);
 	Call_OnClientAuth(client, g_eCMAuth[client]);
 	
 	char _connect_method[16];
@@ -277,14 +282,20 @@ public void OnClientPutInServer(int client)
 		if (g_hAutoBhop.BoolValue || g_hDisableBhop.BoolValue)
 			SDKHookEx(client, SDKHook_PreThink, OnClientPreThink);
 		
-		if (g_eCMAuth[client] == CM_Auth_ClientMod && CM_IsValidVersion(_client_version[client], "2.0.8"))
-			CM_SendValidation(client);
-		
 		if (g_hShootPosFix.BoolValue)
 		{
 			SDKHookEx(client, SDKHook_PreThinkPost, OnClientPreThinkPost);
 			SDKHookEx(client, SDKHook_PostThink, OnClientPostThink);
 			SDKHookEx(client, SDKHook_PostThinkPost, OnClientPostThinkPost);
+		}
+		
+		if (g_eCMAuth[client] == CM_Auth_ClientMod && !IsClientInKickQueue(client))
+		{
+			char szVersion[4];
+			if (!GetClientInfo(client, "~clientmod", szVersion, sizeof(szVersion)) || szVersion[0] != 0)
+				ProcessClientKick(client, g_eCMAuth[client], g_hClientVersionMinMessage);
+			else
+				CM_SendValidation(client);
 		}
 	}
 }
@@ -346,20 +357,21 @@ void Call_OnClientAuth(int client, CMAuthType type)
 	
 	if ((g_hPrivateMode.IntValue == 1 && type != CM_Auth_ClientMod) || (g_hPrivateMode.IntValue == 2 && type < CM_Auth_ClientMod))
 	{
-		PrintLog(client, type);
-		char szKickMessage[192];
-		g_hPrivateMessage.GetString(szKickMessage, sizeof(szKickMessage));
-		ReplaceString(szKickMessage, sizeof(szKickMessage), "\\n", "\n");
-		KickClient(client, szKickMessage);
+		ProcessClientKick(client, type, g_hPrivateMessage);
 	}
 	else if ((type == CM_Auth_ClientMod && !CM_IsValidVersion(_client_version[client], _client_version_min)) || (g_hPrivateMode.IntValue == -1 && type == CM_Auth_ClientMod_Outdated))
 	{
-		PrintLog(client, type);
-		char szKickMessage[192];
-		g_hClientVersionMinMessage.GetString(szKickMessage, sizeof(szKickMessage));
-		ReplaceString(szKickMessage, sizeof(szKickMessage), "\\n", "\n");
-		KickClient(client, szKickMessage);
+		ProcessClientKick(client, type, g_hClientVersionMinMessage);
 	}
+}
+
+void ProcessClientKick(int client, CMAuthType type, ConVar message)
+{
+	PrintLog(client, type);
+	char szKickMessage[192];
+	message.GetString(szKickMessage, sizeof(szKickMessage));
+	ReplaceString(szKickMessage, sizeof(szKickMessage), "\\n", "\n");
+	KickClient(client, szKickMessage);
 }
 
 
